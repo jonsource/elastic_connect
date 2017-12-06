@@ -34,10 +34,10 @@ class Model(object):
 		For ES < 5 returns what is defined in the database settings.
 		For ES >= 5 returns the '_doc_type' defined in cls._mapping
 		"""
-		if database.compatibility >= 5:
+		if elastic_connect.compatibility >= 5:
 			return cls._mapping['_doc_type']
 		else:
-			return database.index
+			return elastic_connect.index
 
 	def __init__(self, **kw):
 		"""Creates an instance of the model using **kw parameters for setting values.
@@ -68,7 +68,7 @@ class Model(object):
 	@classmethod
 	def get_es(cls):
 		if not cls._es:
-			cls._es = database.EsDocTypeConnection(model=cls, es=database.get_es(), index=cls._get_index(),
+			cls._es = elastic_connect.EsDocTypeConnection(model=cls, es=elastic_connect.get_es(), index=cls._get_index(),
 												   doc_type=cls._mapping['_doc_type'])
 		return cls._es
 
@@ -213,7 +213,7 @@ class Model(object):
 	def refresh(cls):
 		"""Refresh the index where this model is stored to make all changes immediately visible to others."""
 
-		database.get_es().indices.refresh(index=cls._get_index())
+		elastic_connect.get_es().indices.refresh(index=cls._get_index())
 
 	def __getattr__(self, name):
 		return self.__dict__.get(name, None)
