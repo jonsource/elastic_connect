@@ -126,7 +126,7 @@ class Model(object):
         """Save a model that has an id, index a model without an id into Elasticsearch"""
 
         if self.id:
-            self.get_es().update(body=self.to_dict())
+            self.get_es().update(id=self.id, body={'doc': self.to_dict(exclude=['id'])})
         else:
             self.get_es().index(body=self.to_dict())
 
