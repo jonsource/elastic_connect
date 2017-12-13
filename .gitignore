@@ -2,3 +2,4 @@
 *.pyc
 *.egg*
 __pycache__
+.idea
