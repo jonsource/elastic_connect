@@ -23,8 +23,6 @@ class Model(object):
         'id': '',
     }
 
-    _joins = {}
-
     _es = None
 
     @classmethod
@@ -86,7 +84,7 @@ class Model(object):
         """Create and return an unsaved model instance based on Elasticsearch query result."""
 
         model = cls(**hit['_source'])
-        for property, type in cls._joins.items():
+        for property, type in cls._mapping.items():
             if isinstance(type, SingleJoin):
                 model.__dict__[property + '_id'] = hit['_source'].get(property + '_id', None)
                 continue
@@ -137,18 +135,13 @@ class Model(object):
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
 
-        for key in self._joins:
-            self._lazy_load_join(key)
-        print("lazy_loaded", self)
-
-    def _lazy_load_join(self, join_key):
-        """Handles the loading of a single model join."""
-
-        join = self._joins[join_key]
-        if isinstance(join, MultiJoin):
-            self.__dict__[join_key] = list(join.get_target().find_by(**{join.join_by: self.id}))
-        else:
-            self.__dict__[join_key] = join.get_target().get(self.__dict__[join_key + '_id'])
+        for key, join in self._mapping.items():
+            if isinstance(join, MultiJoin):
+                print("implement it")
+            if isinstance(join, SingleJoin):
+                print("dict", self.__dict__)
+                self.__dict__[key] = join.get_target().get(self.__dict__[key + '_id'])
+        return self
 
     @classmethod
     def get(cls, id):
@@ -219,18 +212,3 @@ class Model(object):
 
     def __getattr__(self, name):
         return self.__dict__.get(name, None)
-
-    @classmethod
-    def _add_join(cls, name, join_class, **kw):
-        """Handles the creation of this model's joins."""
-
-        cls._mapping[name] = join_class(source=cls, **kw)
-        cls._joins[name] = cls._mapping[name]
-
-    @classmethod
-    def add_single_join(cls, name, **kw):
-        cls._add_join(name, SingleJoin, **kw)
-
-    @classmethod
-    def add_multi_join(cls, name, **kw):
-        cls._add_join(name, MultiJoin, **kw)

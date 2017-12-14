@@ -7,7 +7,7 @@ class Join(ABC):
 
     def __init__(self, source, target):
         self.source = source
-        self._target = target
+        self._module, self._target = target.rsplit('.', 1)
         self.target = None
 
     def get_target(self):
@@ -21,7 +21,7 @@ class Join(ABC):
 
         if not self.target:
             # get class from string - to avoid curcular imports
-            self.target = class_for_name('models', self._target)
+            self.target = class_for_name(self._module, self._target)
         return self.target
 
 

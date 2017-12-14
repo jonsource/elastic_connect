@@ -3,27 +3,27 @@ from elastic_connect import Model
 import elastic_connect
 
 @pytest.fixture(scope="module")
-def fix_model_one():
+def fix_model_one_save():
 
-    class One(Model):
+    class OneSave(Model):
         _mapping = {
-            '_doc_type': 'model_one',
+            '_doc_type': 'model_save_one',
             'id': '',
             'value': 'keyword'
         }
 
     es = elastic_connect.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[One])
-    assert es.indices.exists(index='model_one')
+    indices = elastic_connect.create_mappings(model_classes=[OneSave])
+    assert es.indices.exists(index='model_save_one')
 
-    yield One
+    yield OneSave
 
     elastic_connect.delete_indices(indices=indices)
-    assert not es.indices.exists(index='model_one')
+    assert not es.indices.exists(index='model_save_one')
 
 
-def test_save(fix_model_one):
-    cls = fix_model_one
+def test_save(fix_model_one_save):
+    cls = fix_model_one_save
 
     instance = cls.create(value='value1')
     cls.refresh()
