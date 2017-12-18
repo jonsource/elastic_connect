@@ -1,7 +1,24 @@
 import pytest
 from elastic_connect.base_model import Model
-from elastic_connect.join import SingleJoin
+from elastic_connect.join import SingleJoin, MultiJoin
 import elastic_connect
+
+
+class Parent(Model):
+    _mapping = {
+        '_doc_type': 'model_parent',
+        'id': '',
+        'value': 'keyword',
+        'dependant': SingleJoin(source='test_join.Parent', target='test_join.Child')
+    }
+
+
+class Child(Model):
+    _mapping = {
+        '_doc_type': 'model_child',
+        'id': '',
+        'value': 'keyword'
+    }
 
 
 class One(Model):
@@ -9,58 +26,72 @@ class One(Model):
         '_doc_type': 'model_one',
         'id': '',
         'value': 'keyword',
-        'dependant': SingleJoin('dependant', target='test_join.Two')
+        'many': MultiJoin(source='test_join.One', target='test_join.Many'),
     }
 
-class Two(Model):
+
+class Many(Model):
     _mapping = {
-        '_doc_type': 'model_two',
+        '_doc_type': 'model_many',
         'id': '',
-        'value': 'keyword'
+        'value': 'keyword',
+        'one': SingleJoin(source='test_join.Many', target='test_join.One'),
     }
 
 
 @pytest.fixture(scope="module")
-def fix_model_one(fix_model_two):
-
+def fix_parent_child():
     es = elastic_connect.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[One])
+    indices = elastic_connect.create_mappings(model_classes=[Parent, Child])
+    assert es.indices.exists(index='model_parent')
+    assert es.indices.exists(index='model_child')
+    elastic_connect.delete_indices(indices=indices)
+    assert not es.indices.exists(index='model_parent')
+    assert not es.indices.exists(index='model_child')
+
+
+@pytest.fixture(scope="module")
+def fix_one_many():
+    es = elastic_connect.get_es()
+    indices = elastic_connect.create_mappings(model_classes=[One, Many])
     assert es.indices.exists(index='model_one')
-
-    yield One
-
+    assert es.indices.exists(index='model_many')
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index='model_one')
+    assert not es.indices.exists(index='model_many')
 
 
-@pytest.fixture(scope="module")
-def fix_model_two():
+def test_single_join(fix_parent_child):
+    child = Child.create(value='two_val')
+    parent = Parent.create(value='one_val', dependant=child)
 
-    es = elastic_connect.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[Two])
-    assert es.indices.exists(index='model_two')
+    Parent.refresh()
+    Child.refresh()
 
-    yield Two
+    loaded = Parent.get(parent.id)
+    loaded._lazy_load()
 
-    elastic_connect.delete_indices(indices=indices)
-    assert not es.indices.exists(index='model_two')
+    assert loaded.dependant.id == child.id
+
+    loaded.save()
+    loaded = Parent.get(parent.id)
+    print(loaded)
+    loaded._lazy_load()
+    print(loaded)
+    assert loaded.dependant.id == child.id
 
 
-def test_single_join(fix_model_one, fix_model_two):
-    two = fix_model_two.create(value='two_val')
-    one = fix_model_one.create(value='one_val', dependant=two)
+def test_multi_join(fix_one_many):
+    many1 = Many.create(value='one')
+    many2 = Many.create(value='two')
+    one = One.create(value='boss', many=[many1, many2])
+    print("one", one)
+    One.refresh()
+    Many.refresh()
 
-    fix_model_one.refresh()
-    fix_model_two.refresh()
+    loaded = One.get(one.id)
+    print("loaded", loaded)
+    loaded._lazy_load()
 
-    load = fix_model_one.get(one.id)
-    load._lazy_load()
-
-    assert load.dependant.id == two.id
-
-    load.save()
-    load = fix_model_one.get(one.id)
-    print(load)
-    load._lazy_load()
-    print(load)
-    assert load.dependant.id == two.id
+    print("lazy_loaded", loaded)
+    assert False
