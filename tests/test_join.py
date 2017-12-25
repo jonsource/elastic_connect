@@ -94,4 +94,39 @@ def test_multi_join(fix_one_many):
     loaded._lazy_load()
 
     print("lazy_loaded", loaded)
-    assert False
+    assert len(loaded.many) == 2
+    assert loaded.many[0].id == many1.id
+    assert loaded.many[1].id == many2.id
+
+
+def test_single_join_save(fix_parent_child):
+    child = Child.create(value='two_val')
+    parent = Parent.create(value='one_val')
+
+    parent.dependant = child
+    parent.save()
+    print("saved", parent.__dict__)
+    Child.refresh()
+    Parent.refresh()
+
+    loaded = Parent.get(parent.id)
+    print("loaded", loaded.__dict__)
+    loaded._lazy_load()
+    assert loaded.dependant.id == child.id
+
+
+def test_multi_join_save(fix_one_many):
+    many1 = Many.create(value='one')
+    many2 = Many.create(value='two')
+
+    one = One.create(value='boss')
+    one.many = [many1, many2]
+    one.save()
+    One.refresh()
+    Many.refresh()
+
+    loaded = One.get(one.id)
+    loaded._lazy_load()
+    assert len(loaded.many) == 2
+    assert loaded.many[0].id == many1.id
+    assert loaded.many[1].id == many2.id
