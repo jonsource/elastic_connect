@@ -45,6 +45,9 @@ def fix_parent_child():
     indices = elastic_connect.create_mappings(model_classes=[Parent, Child])
     assert es.indices.exists(index='model_parent')
     assert es.indices.exists(index='model_child')
+
+    yield
+
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index='model_parent')
     assert not es.indices.exists(index='model_child')
@@ -56,6 +59,9 @@ def fix_one_many():
     indices = elastic_connect.create_mappings(model_classes=[One, Many])
     assert es.indices.exists(index='model_one')
     assert es.indices.exists(index='model_many')
+
+    yield
+
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index='model_one')
     assert not es.indices.exists(index='model_many')
