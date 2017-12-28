@@ -1,6 +1,7 @@
 import pytest
 from elastic_connect import Model
 import elastic_connect
+from elastic_connect.data_types import Keyword
 
 @pytest.fixture(scope="module")
 def fix_model_one_save():
@@ -8,8 +9,8 @@ def fix_model_one_save():
     class OneSave(Model):
         _mapping = {
             '_doc_type': 'model_save_one',
-            'id': '',
-            'value': 'keyword'
+            'id': Keyword(name='id'),
+            'value': Keyword(name='value')
         }
 
     es = elastic_connect.get_es()

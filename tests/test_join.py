@@ -1,41 +1,41 @@
 import pytest
 from elastic_connect.base_model import Model
-from elastic_connect.join import SingleJoin, MultiJoin
+from elastic_connect.data_types import Keyword, SingleJoin, MultiJoin
 import elastic_connect
 
 
 class Parent(Model):
     _mapping = {
         '_doc_type': 'model_parent',
-        'id': '',
-        'value': 'keyword',
-        'dependant': SingleJoin(source='test_join.Parent', target='test_join.Child')
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'dependant': SingleJoin(name='dependant', source='test_join.Parent', target='test_join.Child')
     }
 
 
 class Child(Model):
     _mapping = {
         '_doc_type': 'model_child',
-        'id': '',
-        'value': 'keyword'
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value')
     }
 
 
 class One(Model):
     _mapping = {
         '_doc_type': 'model_one',
-        'id': '',
-        'value': 'keyword',
-        'many': MultiJoin(source='test_join.One', target='test_join.Many'),
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'many': MultiJoin(name='many', source='test_join.One', target='test_join.Many'),
     }
 
 
 class Many(Model):
     _mapping = {
         '_doc_type': 'model_many',
-        'id': '',
-        'value': 'keyword',
-        'one': SingleJoin(source='test_join.Many', target='test_join.One'),
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'one': SingleJoin(name='one', source='test_join.Many', target='test_join.One'),
     }
 
 
@@ -70,12 +70,15 @@ def fix_one_many():
 def test_single_join(fix_parent_child):
     child = Child.create(value='two_val')
     parent = Parent.create(value='one_val', dependant=child)
+    print("parent", parent)
 
     Parent.refresh()
     Child.refresh()
 
     loaded = Parent.get(parent.id)
+    print("loaded", loaded)
     loaded._lazy_load()
+    print("loaded", loaded)
 
     assert loaded.dependant.id == child.id
 

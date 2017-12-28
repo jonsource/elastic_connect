@@ -1,7 +1,5 @@
 import elastic_connect
-from .join import SingleJoin, MultiJoin
-import datetime
-import dateutil.parser
+import elastic_connect.data_types as data_types
 
 
 class Model(object):
@@ -20,7 +18,7 @@ class Model(object):
 
     _mapping = {
         '_doc_type': 'model',
-        'id': '',
+        'id': data_types.Keyword(name='id'),
     }
 
     _es = None
@@ -34,11 +32,7 @@ class Model(object):
             if property.startswith('_'):
                 continue
 
-            self.__dict__[property] = kw.get(property, None)
-
-            if type == 'date' and self.__dict__[property] and not isinstance(self.__dict__[property],
-                                                                             datetime.datetime):
-                self.__dict__[property] = dateutil.parser.parse(self.__dict__[property])
+            self.__update(type.from_dict(kw.get(property, None)))
 
     @classmethod
     def _get_index(cls):
@@ -82,11 +76,12 @@ class Model(object):
     def from_es(cls, hit):
         """Create and return an unsaved model instance based on Elasticsearch query result."""
 
-        model = cls(**hit['_source'])
+        # model = cls(**hit['_source'])  # it;s better to create an empty model, but is it always possible ?
+        model = cls()
         for property, type in cls._mapping.items():
-            if isinstance(type, SingleJoin) or isinstance(type, MultiJoin):
-                model.__dict__[property + '_id'] = hit['_source'].get(property + '_id', None)
+            if property.startswith('_'):
                 continue
+            model.__update(type.from_es(hit['_source']))
         model.id = hit['_id']
         return model
 
@@ -100,7 +95,6 @@ class Model(object):
         model = cls.from_dict(**kw)
         model.id = model._compute_id()
         ret = cls._create(model)
-        # print("created ", ret)
         return ret
 
     @classmethod
@@ -133,17 +127,11 @@ class Model(object):
 
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
-
-        for key, join in self._mapping.items():
-            if isinstance(join, MultiJoin):
-                vals = [join.get_target().get(val) for val in self.__dict__[key + '_id']]
-                self.__dict__[key] = vals
+        for property, type in self._mapping.items():
+            if property.startswith('_') or property + '_id' not in self.__dict__:
                 continue
-
-            if isinstance(join, SingleJoin):
-                self.__dict__[key] = join.get_target().get(self.__dict__[key + '_id'])
-                continue
-
+            self.__update(type.lazy_load(self.__dict__[property + '_id']))
+        print("_lazy_loaded:", self)
         return self
 
     @classmethod
@@ -182,31 +170,33 @@ class Model(object):
 
         ret = {}
         for property, type in self._mapping.items():
+            # if not property.startswith('_') and property not in exclude:
+            #     if isinstance(type, MultiJoin):
+            #         val = self.__dict__.get(property, None)
+            #         if val:
+            #             ret[property + '_id'] = [model.id for model in val]
+            #         else:
+            #             ret[property + '_id'] = self.__dict__.get(property + '_id', None)
+            #         continue
+            #
+            #     if isinstance(type, SingleJoin):
+            #         val = self.__dict__.get(property, None)
+            #         if val:
+            #             ret[property + '_id'] = val.id
+            #         else:
+            #             ret[property + '_id'] = self.__dict__.get(property + '_id', None)
+            #         continue
+            #
+            #     if type == 'datetime':
+            #         ret[property] = self.__dict__.get(property).to_iso()
+            #
+            #     ret[property] = self.__dict__.get(property, None)
+            #     try:
+            #         ret[property] = ret[property].to_dict()
+            #     except AttributeError:
+            #         pass
             if not property.startswith('_') and property not in exclude:
-                if isinstance(type, MultiJoin):
-                    val = self.__dict__.get(property, None)
-                    if val:
-                        ret[property + '_id'] = [model.id for model in val]
-                    else:
-                        ret[property + '_id'] = self.__dict__.get(property + '_id', None)
-                    continue
-
-                if isinstance(type, SingleJoin):
-                    val = self.__dict__.get(property, None)
-                    if val:
-                        ret[property + '_id'] = val.id
-                    else:
-                        ret[property + '_id'] = self.__dict__.get(property + '_id', None)
-                    continue
-
-                if type == 'datetime':
-                    ret[property] = self.__dict__.get(property).to_iso()
-
-                ret[property] = self.__dict__.get(property, None)
-                try:
-                    ret[property] = ret[property].to_dict()
-                except AttributeError:
-                    pass
+                ret.update(type.to_dict(self.__dict__[property]))
         return ret
 
     def __repr__(self):
@@ -221,5 +211,12 @@ class Model(object):
 
         elastic_connect.get_es().indices.refresh(index=cls._get_index())
 
-    def __getattr__(self, name):
-        return self.__dict__.get(name, None)
+    def __setattr__(self, name, value):
+        if name in self._mapping:
+            self.__update(self._mapping[name].from_dict(value))
+            return
+        return super().__setattr__(name, value)
+
+
+    def __update(self, value):
+        self.__dict__.update(value)

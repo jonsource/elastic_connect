@@ -2,7 +2,7 @@ from elasticsearch import Elasticsearch
 import elasticsearch
 from collections import UserList
 import time
-from .join import MultiJoin, SingleJoin
+from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
 es = None
 es_conf = None
@@ -103,19 +103,18 @@ def create_mappings(model_classes):
             print("** Index %s created" % index)
         except elasticsearch.exceptions.RequestError as e:
             print("** Index %s already exists!!" % index)
-            if (e.error != 'index_already_exists_exception'):
+            if e.error != 'index_already_exists_exception':
                 raise e
 
     mapping = {}
     for model_class in model_classes:
         properties = {}
         for name, type in model_class._mapping.items():
-            if name.startswith('_') or isinstance(type, MultiJoin) or name == 'id':
+            if name.startswith('_'):
                 continue
-            if isinstance(type, SingleJoin):
-                properties[name + '_id'] = {"type": "keyword"}
-            else:
-                properties[name] = {"type": type}
+            es_type = type.get_es_type()
+            if es_type:
+                properties.update({name: {"type": es_type}})
         mapping[model_class._mapping['_doc_type']] = {"properties": properties}
 
     created = []
