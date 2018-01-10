@@ -5,9 +5,11 @@ from elastic_connect.data_types import Keyword
 
 def test_delete_indices():
     class One(Model):
+        _meta = {
+            '_doc_type': 'model_one'
+        }
         _mapping = {
-            '_doc_type': 'model_one',
-            'id': Keyword(name='id'),
+            'id': Keyword(name='id')
         }
 
     es = elastic_connect.get_es()

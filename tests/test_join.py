@@ -5,8 +5,10 @@ import elastic_connect
 
 
 class Parent(Model):
+    _meta = {
+        '_doc_type': 'model_parent'
+    }
     _mapping = {
-        '_doc_type': 'model_parent',
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
         'dependant': SingleJoin(name='dependant', source='test_join.Parent', target='test_join.Child')
@@ -14,16 +16,20 @@ class Parent(Model):
 
 
 class Child(Model):
+    _meta = {
+        '_doc_type': 'model_child'
+    }
     _mapping = {
-        '_doc_type': 'model_child',
         'id': Keyword(name='id'),
         'value': Keyword(name='value')
     }
 
 
 class One(Model):
+    _meta = {
+        '_doc_type': 'model_one'
+    }
     _mapping = {
-        '_doc_type': 'model_one',
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
         'many': MultiJoin(name='many', source='test_join.One', target='test_join.Many'),
@@ -31,8 +37,10 @@ class One(Model):
 
 
 class Many(Model):
+    _meta = {
+        '_doc_type': 'model_many'
+    }
     _mapping = {
-        '_doc_type': 'model_many',
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
         'one': SingleJoin(name='one', source='test_join.Many', target='test_join.One'),

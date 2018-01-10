@@ -7,8 +7,10 @@ from elastic_connect.data_types import Keyword
 def fix_model_one_save():
 
     class OneSave(Model):
+        _meta = {
+            '_doc_type': 'model_save_one'
+        }
         _mapping = {
-            '_doc_type': 'model_save_one',
             'id': Keyword(name='id'),
             'value': Keyword(name='value')
         }

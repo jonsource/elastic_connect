@@ -12,13 +12,15 @@ class Model(object):
         _mapping (dict): dictionary describing the model.
                          property_name: elasticsearch data type or 'ref' for reference to other model, defined by a join
                          keys starting with _ are not saved in elasticsearch
-        _joins (dict): .
-        es: connection to elasticsearch.
+        _es: connection to elasticsearch.
     """
 
     _mapping = {
-        '_doc_type': 'model',
         'id': data_types.Keyword(name='id'),
+    }
+
+    _meta = {
+        '_doc_type': 'model'
     }
 
     _es = None
@@ -29,10 +31,7 @@ class Model(object):
         properties defined as 'date' in cls._mapping are converted to datetime
         """
         for property, type in self._mapping.items():
-            if property.startswith('_'):
-                continue
-
-            self.__update(type.from_dict(kw.get(property, None)))
+            self.__update(type.to_dict(type.from_python(kw.get(property, None))))
 
     @classmethod
     def _get_index(cls):
@@ -42,7 +41,7 @@ class Model(object):
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
         if elastic_connect.compatibility >= 5:
-            return cls._mapping['_doc_type']
+            return cls._meta['_doc_type']
         else:
             return elastic_connect.index
 
@@ -62,7 +61,7 @@ class Model(object):
         if not cls._es:
             cls._es = elastic_connect.DocTypeConnection(model=cls, es=elastic_connect.get_es(),
                                                         index=cls._get_index(),
-                                                        doc_type=cls._mapping['_doc_type'])
+                                                        doc_type=cls._meta['_doc_type'])
         return cls._es
 
     @classmethod
@@ -79,9 +78,7 @@ class Model(object):
         # model = cls(**hit['_source'])  # it;s better to create an empty model, but is it always possible ?
         model = cls()
         for property, type in cls._mapping.items():
-            if property.startswith('_'):
-                continue
-            model.__update(type.from_es(hit['_source']))
+            model.__update(type.to_dict(type.from_es(hit['_source'])))
         model.id = hit['_id']
         return model
 
@@ -106,10 +103,10 @@ class Model(object):
         """
 
         if model.id:
-            response = cls.get_es().create(id=model.id, body=model.to_dict(exclude=['id']))
+            response = cls.get_es().create(id=model.id, body=model.to_es(exclude=['id']))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
-            response = cls.get_es().index(body=model.to_dict(exclude=['id']))
+            response = cls.get_es().index(body=model.to_es(exclude=['id']))
         model.id = response['_id']
         return model
 
@@ -117,9 +114,9 @@ class Model(object):
         """Save a model that has an id, index a model without an id into Elasticsearch"""
 
         if self.id:
-            self.get_es().update(id=self.id, body={'doc': self.to_dict(exclude=['id'])})
+            self.get_es().update(id=self.id, body={'doc': self.to_es(exclude=['id'])})
         else:
-            self.get_es().index(body=self.to_dict(exclude=['id']))
+            self.get_es().index(body=self.to_es(exclude=['id']))
 
     def delete(self):
         """Delete a model from elasticsearch."""
@@ -128,7 +125,7 @@ class Model(object):
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
         for property, type in self._mapping.items():
-            if property.startswith('_') or property + '_id' not in self.__dict__:
+            if property + '_id' not in self.__dict__:
                 continue
             self.__update(type.lazy_load(self.__dict__[property + '_id']))
         print("_lazy_loaded:", self)
@@ -161,7 +158,7 @@ class Model(object):
         })
         return ret
 
-    def to_dict(self, exclude=["password"]):
+    def to_es(self, exclude=["password"]):
         """Serilaizes the model for storing to Elasticsearch.
 
         Joins are transformed from join: model format to join_id: id format.
@@ -170,37 +167,12 @@ class Model(object):
 
         ret = {}
         for property, type in self._mapping.items():
-            # if not property.startswith('_') and property not in exclude:
-            #     if isinstance(type, MultiJoin):
-            #         val = self.__dict__.get(property, None)
-            #         if val:
-            #             ret[property + '_id'] = [model.id for model in val]
-            #         else:
-            #             ret[property + '_id'] = self.__dict__.get(property + '_id', None)
-            #         continue
-            #
-            #     if isinstance(type, SingleJoin):
-            #         val = self.__dict__.get(property, None)
-            #         if val:
-            #             ret[property + '_id'] = val.id
-            #         else:
-            #             ret[property + '_id'] = self.__dict__.get(property + '_id', None)
-            #         continue
-            #
-            #     if type == 'datetime':
-            #         ret[property] = self.__dict__.get(property).to_iso()
-            #
-            #     ret[property] = self.__dict__.get(property, None)
-            #     try:
-            #         ret[property] = ret[property].to_dict()
-            #     except AttributeError:
-            #         pass
-            if not property.startswith('_') and property not in exclude:
-                ret.update(type.to_dict(self.__dict__[property]))
+            if property not in exclude:
+                ret.update(type.to_es(self.__dict__[property]))
         return ret
 
     def __repr__(self):
-        return object.__repr__(self) + str(self.to_dict())
+        return object.__repr__(self) + str(self.to_es())
 
     def __str__(self):
         return str(self.__dict__)
@@ -213,10 +185,9 @@ class Model(object):
 
     def __setattr__(self, name, value):
         if name in self._mapping:
-            self.__update(self._mapping[name].from_dict(value))
+            self.__update(self._mapping[name].to_dict(value))
             return
         return super().__setattr__(name, value)
-
 
     def __update(self, value):
         self.__dict__.update(value)

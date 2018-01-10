@@ -3,8 +3,10 @@ from elastic_connect.data_types import Keyword
 import ujson as json
 
 class Simple(Model):
-    _mapping = {
+    _meta = {
         '_doc_type': 'model_child',
+    }
+    _mapping = {
         'id': Keyword(name='id'),
         'value': Keyword(name='value')
     }

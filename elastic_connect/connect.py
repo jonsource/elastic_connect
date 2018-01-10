@@ -115,7 +115,7 @@ def create_mappings(model_classes):
             es_type = type.get_es_type()
             if es_type:
                 properties.update({name: {"type": es_type}})
-        mapping[model_class._mapping['_doc_type']] = {"properties": properties}
+        mapping[model_class._meta['_doc_type']] = {"properties": properties}
 
     created = []
     if compatibility >= 6:

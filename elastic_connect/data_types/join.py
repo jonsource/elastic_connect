@@ -42,7 +42,12 @@ class Join(BaseDataType):
         return self.source
 
     def from_es(self, es_hit):
-        return {self.name + '_id': es_hit.get(self.name + '_id', None)}
+        return es_hit.get(self.name + '_id', None)
+
+    def to_dict(self, value):
+        to_es = self.to_es(value)
+        to_es.update({self.name: value})
+        return to_es
 
     def _get_es_type(self):
         return 'keyword'
@@ -53,11 +58,12 @@ class SingleJoin(Join):
     def lazy_load(self, value):
         return {self.name: self.get_target().get(value)}
 
-    def to_dict(self, value):
+    def to_es(self, value):
         try:
             id = value.id
         except (AttributeError, TypeError):
             id = value
+
         return {self.name + '_id': id}
 
 class MultiJoin(Join):
@@ -75,7 +81,7 @@ class MultiJoin(Join):
     def lazy_load(self, value):
         return {self.name: [self.get_target().get(val) for val in value]}
 
-    def to_dict(self, value):
+    def to_es(self, value):
         try:
             ids = [model.id for model in value]
         except (AttributeError, TypeError):
