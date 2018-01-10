@@ -1,29 +1,32 @@
 import pytest
 from elastic_connect import Model
 import elastic_connect
+from elastic_connect.data_types import Keyword
 
 @pytest.fixture(scope="module")
-def fix_model_one():
+def fix_model_one_save():
 
-    class One(Model):
+    class OneSave(Model):
+        _meta = {
+            '_doc_type': 'model_save_one'
+        }
         _mapping = {
-            '_doc_type': 'model_one',
-            'id': '',
-            'value': 'keyword'
+            'id': Keyword(name='id'),
+            'value': Keyword(name='value')
         }
 
     es = elastic_connect.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[One])
-    assert es.indices.exists(index='model_one')
+    indices = elastic_connect.create_mappings(model_classes=[OneSave])
+    assert es.indices.exists(index='model_save_one')
 
-    yield One
+    yield OneSave
 
     elastic_connect.delete_indices(indices=indices)
-    assert not es.indices.exists(index='model_one')
+    assert not es.indices.exists(index='model_save_one')
 
 
-def test_save(fix_model_one):
-    cls = fix_model_one
+def test_save(fix_model_one_save):
+    cls = fix_model_one_save
 
     instance = cls.create(value='value1')
     cls.refresh()
