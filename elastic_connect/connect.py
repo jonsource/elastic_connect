@@ -1,7 +1,8 @@
 from elasticsearch import Elasticsearch
 import elasticsearch
 from collections import UserList
-from .join import MultiJoin, SingleJoin
+import time
+from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
 es = None
 es_conf = None
@@ -24,7 +25,7 @@ def get_es():
     return es
 
 
-class EsResult(UserList):
+class Result(UserList):
     """Handles the conversion of Elasticsearch query results to models."""
 
     def __init__(self, result, model):
@@ -38,16 +39,13 @@ class EsResult(UserList):
         for hit in self.hits:
             ret.append(model.from_es(hit))
         self.results = ret
-        super(EsResult, self).__init__(self.results)
+        super(Result, self).__init__(self.results)
 
     def to_dict(self):
-        ret = []
-        for result in self.results:
-            ret.append(result.to_dict())
-        return ret
+        return [result.to_dict() for result in self.results]
 
 
-class EsDocTypeConnection(object):
+class DocTypeConnection(object):
     """Connection for a specific model to Elasticsearch.
 
     For ES < 6 supports multiple doc_types in a single index.
@@ -56,34 +54,34 @@ class EsDocTypeConnection(object):
 
     # TODO: sanitize input by https://stackoverflow.com/questions/16205341/symbols-in-query-string-for-elasticsearch
 
-    def __init__(self, model, es, index, doc_type, defaultArgs={}):
+    def __init__(self, model, es, index, doc_type, default_args={}):
         self.es = es
         if compatibility >= 6:
             self.index_name = doc_type
         else:
             self.index_name = index
         self.doc_type = doc_type
-        self.defaultArgs = defaultArgs
+        self.default_args = default_args
         self.model = model
 
     def get_default_args(self):
         default = {"index": self.index_name, "doc_type": self.doc_type}
-        default.update(self.defaultArgs)
+        default.update(self.default_args)
         return default
 
     def __getattr__(self, name):
         """All methods are redirected to the underlying elasticsearch connection.
 
-        Search and get methods return EsResult on success, otherwise the JSON from Elasticseach is returned.
+        Search and get methods return Result on success, otherwise the JSON from Elasticseach is returned.
         """
 
         def helper(**kwargs):
-            esFunc = getattr(self.es, name)
-            passArgs = self.get_default_args().copy()
-            passArgs.update(kwargs)
-            data = esFunc(**passArgs)
+            es_func = getattr(self.es, name)
+            pass_args = self.get_default_args().copy()
+            pass_args.update(kwargs)
+            data = es_func(**pass_args)
             if 'hits' in data or name == "get":
-                result = EsResult(data, self.model)
+                result = Result(data, self.model)
                 if name == "get" and len(result) == 1:
                     return result[0]
                 return result
@@ -105,20 +103,19 @@ def create_mappings(model_classes):
             print("** Index %s created" % index)
         except elasticsearch.exceptions.RequestError as e:
             print("** Index %s already exists!!" % index)
-            if (e.error != 'index_already_exists_exception'):
+            if e.error != 'index_already_exists_exception':
                 raise e
 
     mapping = {}
     for model_class in model_classes:
         properties = {}
         for name, type in model_class._mapping.items():
-            if name.startswith('_') or isinstance(type, MultiJoin) or name == 'id':
+            if name.startswith('_'):
                 continue
-            if isinstance(type, SingleJoin):
-                properties[name + '_id'] = {"type": "keyword"}
-            else:
-                properties[name] = {"type": type}
-        mapping[model_class._mapping['_doc_type']] = {"properties": properties}
+            es_type = type.get_es_type()
+            if es_type:
+                properties.update({name: {"type": es_type}})
+        mapping[model_class._meta['_doc_type']] = {"properties": properties}
 
     created = []
     if compatibility >= 6:
@@ -132,7 +129,7 @@ def create_mappings(model_classes):
 
 
 def delete_index(index, timeout=2.0):
-    """Deletes and index from Elasticsearch and blocks until it is deleted.
+    """Deletes an index from Elasticsearch and blocks until it is deleted.
 
     Timeouts after timeout seconds.
     """
