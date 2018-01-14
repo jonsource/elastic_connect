@@ -5,6 +5,8 @@ import elastic_connect
 
 
 class Parent(Model):
+    __slots__ = ('id', 'value', 'dependant', 'dependant_id')
+
     _meta = {
         '_doc_type': 'model_parent'
     }
@@ -16,6 +18,8 @@ class Parent(Model):
 
 
 class Child(Model):
+    __slots__ = ('id', 'value')
+
     _meta = {
         '_doc_type': 'model_child'
     }
@@ -26,6 +30,8 @@ class Child(Model):
 
 
 class One(Model):
+    __slots__ = ('id', 'value', 'many', 'many_id')
+
     _meta = {
         '_doc_type': 'model_one'
     }
@@ -37,6 +43,8 @@ class One(Model):
 
 
 class Many(Model):
+    __slots__ = ('id', 'value', 'one', 'one_id')
+
     _meta = {
         '_doc_type': 'model_many'
     }
@@ -122,12 +130,13 @@ def test_single_join_save(fix_parent_child):
 
     parent.dependant = child
     parent.save()
-    print("saved", parent.__dict__)
+
+    print("saved", parent.to_es())
     Child.refresh()
     Parent.refresh()
 
     loaded = Parent.get(parent.id)
-    print("loaded", loaded.__dict__)
+    print("loaded", loaded.to_es())
     loaded._lazy_load()
     assert loaded.dependant.id == child.id
 
