@@ -91,9 +91,11 @@ class DocTypeConnection(object):
 
 
 def create_mappings(model_classes):
-    """Creates index mapping in Elasticsearch for each model passed in.
-
+    """
+    Creates index mapping in Elasticsearch for each model passed in.
     Doesn't update existing mappings.
+    :param model_classes: a list of classes for which indices are created
+    :return: returns the names of indices which were actually created
     """
 
     def safe_create(index, body):
@@ -106,36 +108,37 @@ def create_mappings(model_classes):
             if e.error != 'index_already_exists_exception':
                 raise e
 
-    mapping = {}
+    mappings = {}
     for model_class in model_classes:
-        properties = {}
-        for name, type in model_class._mapping.items():
-            if name.startswith('_'):
-                continue
-            es_type = type.get_es_type()
-            if es_type:
-                properties.update({name: {"type": es_type}})
-        mapping[model_class._meta['_doc_type']] = {"properties": properties}
+        mappings[model_class._meta['_doc_type']] = {"properties": model_class.get_es_mapping()}
 
     created = []
     if compatibility >= 6:
-        for name in mapping.keys():
-            safe_create(index=name, body={"mappings": {name: mapping[name]}})
+        for name in mappings.keys():
+            safe_create(index=name, body={"mappings": {name: mappings[name]}})
             created.append(name)
     else:
-        safe_create(index=index, body={"mappings": mapping})
+        safe_create(index=index, body={"mappings": mappings})
         created.append(index)
     return created
 
 
 def delete_index(index, timeout=2.0):
-    """Deletes an index from Elasticsearch and blocks until it is deleted.
+    """
+    Deletes an index from Elasticsearch and blocks until it is deleted.
 
-    Timeouts after timeout seconds.
+    :param index: index to be deleted
+    :param timeout: default 2, if the index is not deleted after the number of seconds, Exception is riased.
+    If timeout = 0 doesn't block and returns immediately
+    :return: none
     """
 
     result = es.indices.delete(index=index)
     rep = int(10 * timeout)
+
+    if not timeout:
+        return
+
     while rep and es.indices.exists(index=index):
         rep -= 1
         time.sleep(0.1)

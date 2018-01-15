@@ -15,6 +15,8 @@ class Model(object):
         _es: connection to elasticsearch.
     """
 
+    __slots__ = ('id', )
+
     _mapping = {
         'id': data_types.Keyword(name='id'),
     }
@@ -83,7 +85,7 @@ class Model(object):
         return model
 
     @classmethod
-    def create(cls, **kw):
+    def create(cls, **kw) -> 'cls':
         """Create, save and return a model instance based on dictionary.
 
         Property id gets set by Elasticsearch or computed depending on cls._compute_id()
@@ -125,9 +127,9 @@ class Model(object):
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
         for property, type in self._mapping.items():
-            if property + '_id' not in self.__dict__:
+            if property + '_id' not in self.__slots__:
                 continue
-            self.__update(type.lazy_load(self.__dict__[property + '_id']))
+            self.__update(type.lazy_load(self.__getattribute__(property + '_id')))
         print("_lazy_loaded:", self)
         return self
 
@@ -168,14 +170,14 @@ class Model(object):
         ret = {}
         for property, type in self._mapping.items():
             if property not in exclude:
-                ret.update(type.to_es(self.__dict__[property]))
+                ret.update(type.to_es(self.__getattribute__(property)))
         return ret
 
     def __repr__(self):
         return object.__repr__(self) + str(self.to_es())
 
     def __str__(self):
-        return str(self.__dict__)
+        return str(self.to_es())
 
     @classmethod
     def refresh(cls):
@@ -190,4 +192,20 @@ class Model(object):
         return super().__setattr__(name, value)
 
     def __update(self, value):
-        self.__dict__.update(value)
+        for key, val in value.items():
+            super().__setattr__(key, val)
+
+    @classmethod
+    def get_es_mapping(cls):
+        """
+        Returns a dict representing the elastic search mapping for this model
+        :return: dict
+        """
+
+        mapping = {}
+        for name, type in cls._mapping.items():
+            if name != 'id':
+                mapping[name] = {"type": type.get_es_type()}
+
+        print("mapping", mapping)
+        return mapping
