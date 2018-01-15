@@ -26,6 +26,7 @@ class Model(object):
     }
 
     _es = None
+    _index_prefix = None
 
     def __init__(self, **kw):
         """Creates an instance of the model using **kw parameters for setting values.
@@ -36,16 +37,23 @@ class Model(object):
             self.__update(type.to_dict(type.from_python(kw.get(property, None))))
 
     @classmethod
-    def _get_index(cls):
+    def get_index(cls):
         """Returns the name of the index this model is stored in.
 
         For ES < 5 returns what is defined in the database settings.
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
+        if not cls._index_prefix:
+            cls._index_prefix = cls._get_index_prefix()
+
         if elastic_connect.compatibility >= 5:
-            return cls._meta['_doc_type']
+            return cls._index_prefix + cls._meta['_doc_type']
         else:
-            return elastic_connect.index
+            return cls._index_prefix + elastic_connect.index
+
+    @classmethod
+    def _get_index_prefix(cls):
+        return elastic_connect.es_conf['index_prefix']
 
     def _compute_id(self):
         """Count or return stored id for this model instance.
@@ -62,7 +70,7 @@ class Model(object):
     def get_es(cls):
         if not cls._es:
             cls._es = elastic_connect.DocTypeConnection(model=cls, es=elastic_connect.get_es(),
-                                                        index=cls._get_index(),
+                                                        index=cls.get_index(),
                                                         doc_type=cls._meta['_doc_type'])
         return cls._es
 
@@ -183,7 +191,7 @@ class Model(object):
     def refresh(cls):
         """Refresh the index where this model is stored to make all changes immediately visible to others."""
 
-        elastic_connect.get_es().indices.refresh(index=cls._get_index())
+        elastic_connect.get_es().indices.refresh(index=cls.get_index())
 
     def __setattr__(self, name, value):
         if name in self._mapping:

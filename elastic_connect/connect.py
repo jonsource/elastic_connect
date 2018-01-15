@@ -5,11 +5,10 @@ import time
 from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
 es = None
-es_conf = None
+es_conf = {'es': None}
 
 compatibility = 6
 index = 'api'
-
 
 def connect(conf):
     global es_conf
@@ -21,7 +20,7 @@ def connect(conf):
 def get_es():
     global es
     if not es:
-        es = Elasticsearch(es_conf)
+        es = Elasticsearch(es_conf['es'])
     return es
 
 
@@ -110,7 +109,7 @@ def create_mappings(model_classes):
 
     mappings = {}
     for model_class in model_classes:
-        mappings[model_class._meta['_doc_type']] = {"properties": model_class.get_es_mapping()}
+        mappings[model_class.get_index()] = {"properties": model_class.get_es_mapping()}
 
     created = []
     if compatibility >= 6:
