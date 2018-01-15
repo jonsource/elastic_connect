@@ -194,3 +194,18 @@ class Model(object):
     def __update(self, value):
         for key, val in value.items():
             super().__setattr__(key, val)
+
+    @classmethod
+    def get_es_mapping(cls):
+        """
+        Returns a dict representing the elastic search mapping for this model
+        :return: dict
+        """
+
+        mapping = {}
+        for name, type in cls._mapping.items():
+            if name != 'id':
+                mapping[name] = {"type": type.get_es_type()}
+
+        print("mapping", mapping)
+        return mapping

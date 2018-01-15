@@ -3,6 +3,8 @@ from elastic_connect.data_types import Keyword
 import ujson as json
 
 class Simple(Model):
+    __slots__ = ('id', 'value')
+
     _meta = {
         '_doc_type': 'model_child',
     }
