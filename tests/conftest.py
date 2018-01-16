@@ -20,7 +20,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="session", autouse=True)
 def prefix_indices(request):
     # set the prefix for all indices, just to be safe
-    elastic_connect.es_conf['index_prefix'] = pytest.config.getoption("--es-prefix") + '_'
+    elastic_connect.es_conf['_default']['index_prefix'] = pytest.config.getoption("--es-prefix") + '_'
 
 @pytest.fixture(scope="module")
 def fix_es():

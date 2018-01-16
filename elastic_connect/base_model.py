@@ -22,9 +22,10 @@ class Model(object):
     }
 
     _meta = {
-        '_doc_type': 'model'
+        '_doc_type': 'model',
     }
 
+    _es_namespace = '_default'
     _es = None
     _index_prefix = None
 
@@ -53,7 +54,7 @@ class Model(object):
 
     @classmethod
     def _get_index_prefix(cls):
-        return elastic_connect.es_conf['index_prefix']
+        return elastic_connect.es_conf[cls._es_namespace]['index_prefix']
 
     def _compute_id(self):
         """Count or return stored id for this model instance.
@@ -69,9 +70,11 @@ class Model(object):
     @classmethod
     def get_es(cls):
         if not cls._es:
-            cls._es = elastic_connect.DocTypeConnection(model=cls, es=elastic_connect.get_es(),
+            print(cls.__name__ + " connecting to " + cls._es_namespace)
+            cls._es = elastic_connect.DocTypeConnection(model=cls, es=elastic_connect.get_es(cls._es_namespace),
                                                         index=cls.get_index(),
                                                         doc_type=cls._meta['_doc_type'])
+            print(cls._es.index_name)
         return cls._es
 
     @classmethod

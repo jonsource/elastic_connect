@@ -4,24 +4,25 @@ from collections import UserList
 import time
 from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
-es = None
-es_conf = {'es': None}
+es_conf = {'_default': {'es_conf': None}
+          }
 
 compatibility = 6
 index = 'api'
 
-def connect(conf):
+def connect(conf, namespace='_default'):
     global es_conf
     if not es_conf:
         # TODO handle reconnects
         es_conf = conf
 
 
-def get_es():
-    global es
-    if not es:
-        es = Elasticsearch(es_conf['es'])
-    return es
+def get_es(namespace='_default'):
+
+    es_namespace = es_conf[namespace]
+    if 'es' not in es_namespace or not es_namespace['es']:
+        es_namespace['es'] = Elasticsearch(es_namespace['es_conf'])
+    return es_namespace['es']
 
 
 class Result(UserList):
@@ -56,7 +57,8 @@ class DocTypeConnection(object):
     def __init__(self, model, es, index, doc_type, default_args={}):
         self.es = es
         if compatibility >= 6:
-            self.index_name = doc_type
+            # TODO: write it better
+            self.index_name = es_conf[model._es_namespace]['index_prefix'] + doc_type
         else:
             self.index_name = index
         self.doc_type = doc_type
@@ -89,7 +91,7 @@ class DocTypeConnection(object):
         return helper
 
 
-def create_mappings(model_classes):
+def create_mappings(model_classes, namespace='_default'):
     """
     Creates index mapping in Elasticsearch for each model passed in.
     Doesn't update existing mappings.
@@ -98,7 +100,7 @@ def create_mappings(model_classes):
     """
 
     def safe_create(index, body):
-        es = get_es()
+        es = get_es(namespace)
         try:
             es.indices.create(index=index, body=body)
             print("** Index %s created" % index)
@@ -122,7 +124,7 @@ def create_mappings(model_classes):
     return created
 
 
-def delete_index(index, timeout=2.0):
+def delete_index(index, timeout=2.0, namespace='_default'):
     """
     Deletes an index from Elasticsearch and blocks until it is deleted.
 
@@ -132,23 +134,23 @@ def delete_index(index, timeout=2.0):
     :return: none
     """
 
-    result = es.indices.delete(index=index)
+    result = get_es(namespace).indices.delete(index=index)
     rep = int(10 * timeout)
 
     if not timeout:
         return
 
-    while rep and es.indices.exists(index=index):
+    while rep and get_es(namespace).indices.exists(index=index):
         rep -= 1
         time.sleep(0.1)
 
-    if not rep and es.indices.exists(index=index):
+    if not rep and get_es(namespace).indices.exists(index=index):
         raise Exception("Timeout. Index %s still exists after %s seconds." % (index, timeout))
 
     print("** Index %s deleted" % index)
 
 
-def delete_indices(indices):
+def delete_indices(indices, namespace='_default'):
     # TODO: delete the indices in parallel
     for index in indices:
-        delete_index(index)
+        delete_index(index, namespace=namespace)

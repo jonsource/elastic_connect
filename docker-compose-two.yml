@@ -1,0 +1,11 @@
+version: '2'
+services:
+    elasticsearch:
+        image: elasticsearch:5.4
+        ports:
+            - 9200:9200
+
+    elasticsearch2:
+        image: elasticsearch:5.4
+        ports:
+            - 18400:9200
