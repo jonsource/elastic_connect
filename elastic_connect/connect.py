@@ -2,6 +2,8 @@ from elasticsearch import Elasticsearch
 import elasticsearch
 from collections import UserList
 import time
+from .namespace import _namespaces
+
 from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
 es_conf = {'_default': {'es_conf': None}
@@ -17,12 +19,9 @@ def connect(conf, namespace='_default'):
         es_conf = conf
 
 
-def get_es(namespace='_default'):
+def get_es():
 
-    es_namespace = es_conf[namespace]
-    if 'es' not in es_namespace or not es_namespace['es']:
-        es_namespace['es'] = Elasticsearch(es_namespace['es_conf'])
-    return es_namespace['es']
+    return _namespaces['_default'].get_es()
 
 
 class Result(UserList):
@@ -54,11 +53,12 @@ class DocTypeConnection(object):
 
     # TODO: sanitize input by https://stackoverflow.com/questions/16205341/symbols-in-query-string-for-elasticsearch
 
-    def __init__(self, model, es, index, doc_type, default_args={}):
-        self.es = es
+    def __init__(self, model, es_namespace, index, doc_type, default_args={}):
+        self.es_namespace = es_namespace
+        self.es = es_namespace.get_es()
         if compatibility >= 6:
             # TODO: write it better
-            self.index_name = es_conf[model._es_namespace]['index_prefix'] + doc_type
+            self.index_name = es_namespace.index_prefix + doc_type
         else:
             self.index_name = index
         self.doc_type = doc_type
@@ -91,7 +91,7 @@ class DocTypeConnection(object):
         return helper
 
 
-def create_mappings(model_classes, namespace='_default'):
+def create_mappings(model_classes, namespace=None):
     """
     Creates index mapping in Elasticsearch for each model passed in.
     Doesn't update existing mappings.
@@ -100,7 +100,11 @@ def create_mappings(model_classes, namespace='_default'):
     """
 
     def safe_create(index, body):
-        es = get_es(namespace)
+        if namespace:
+            es = namespace.get_es()
+        else:
+            es = get_es()
+
         try:
             es.indices.create(index=index, body=body)
             print("** Index %s created" % index)
@@ -124,7 +128,7 @@ def create_mappings(model_classes, namespace='_default'):
     return created
 
 
-def delete_index(index, timeout=2.0, namespace='_default'):
+def delete_index(index, timeout=2.0, namespace=None):
     """
     Deletes an index from Elasticsearch and blocks until it is deleted.
 
@@ -134,23 +138,28 @@ def delete_index(index, timeout=2.0, namespace='_default'):
     :return: none
     """
 
-    result = get_es(namespace).indices.delete(index=index)
+    if namespace:
+        es = namespace.get_es()
+    else:
+        es = get_es()
+
+    result = es.indices.delete(index=index)
     rep = int(10 * timeout)
 
     if not timeout:
         return
 
-    while rep and get_es(namespace).indices.exists(index=index):
+    while rep and es.indices.exists(index=index):
         rep -= 1
         time.sleep(0.1)
 
-    if not rep and get_es(namespace).indices.exists(index=index):
+    if not rep and es.indices.exists(index=index):
         raise Exception("Timeout. Index %s still exists after %s seconds." % (index, timeout))
 
     print("** Index %s deleted" % index)
 
 
-def delete_indices(indices, namespace='_default'):
+def delete_indices(indices, namespace=None):
     # TODO: delete the indices in parallel
     for index in indices:
         delete_index(index, namespace=namespace)
