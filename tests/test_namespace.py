@@ -13,16 +13,6 @@ def override_default_namespace():
 
     default._index_prefix = old_prefix
 
-
-@pytest.fixture(scope="module")
-def second_namespace():
-
-    second = elastic_connect.Namespace(name='second', es_conf=None)
-    elastic_connect.namespace.register_namespace(second)
-
-    yield second
-
-
 def test_default_namespace_prefix():
 
     class DnpModel(elastic_connect.Model):

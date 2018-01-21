@@ -47,3 +47,14 @@ def fix_index(model_classes):
         elastic_connect.delete_index(index)
 
     print("\npost\n", elastic_connect.get_es().cat.indices() or "No indices")
+
+
+@pytest.fixture(scope="module")
+def second_namespace():
+    if 'second' in elastic_connect._namespaces:
+        return elastic_connect._namespaces['second']
+
+    second = elastic_connect.Namespace(name='second', es_conf=None)
+    elastic_connect.namespace.register_namespace(second)
+
+    return second

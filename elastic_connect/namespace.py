@@ -20,6 +20,7 @@ class Namespace(object):
             #TODO: how to deal with __slots__
             _es_namespace = None
             _es_connection = None
+            __slots__ = model_class.__slots__
 
         NewModelClass.__name__ = self.name + '_' + model_class.__name__
         NewModelClass._es_namespace = self
