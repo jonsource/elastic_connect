@@ -34,8 +34,14 @@ class BaseDataType(ABC):
     def get_es_type(self):
         return self._has_es_type() and self._get_es_type()
 
+    def on_update(self, value, model):
+        return self.to_dict(value)
+
+    def get_default_value(self):
+        return None
+
     def __repr__(self):
-        return object.__repr__(self) + str(self.to_dict())
+        return object.__repr__(self) + str(self.__dict__)
 
 
 class Keyword(BaseDataType):

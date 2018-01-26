@@ -35,7 +35,7 @@ class Model(object):
         properties defined as 'date' in cls._mapping are converted to datetime
         """
         for property, type in self._mapping.items():
-            self.__update(type.to_dict(type.from_python(kw.get(property, None))))
+            self.__update(type.to_dict(type.from_python(kw.get(property, type.get_default_value()))))
 
     @classmethod
     def get_index(cls):
@@ -194,13 +194,19 @@ class Model(object):
 
     def __setattr__(self, name, value):
         if name in self._mapping:
-            self.__update(self._mapping[name].to_dict(value))
+            self.__update(self._mapping[name].on_update(value, self))
             return
         return super().__setattr__(name, value)
 
     def __update(self, value):
         for key, val in value.items():
             super().__setattr__(key, val)
+
+    def _set_reference(self, name, value):
+        current = self.__getattribute__(name)
+        if type(current) == list and value.id not in [o.id for o in current]:
+            return current.append(value)
+        return super().__setattr__(name, value)
 
     @classmethod
     def get_es_mapping(cls):
