@@ -12,12 +12,6 @@ es_conf = {'_default': {'es_conf': None}
 compatibility = 6
 index = 'api'
 
-def connect(conf, namespace='_default'):
-    global es_conf
-    if not es_conf:
-        # TODO handle reconnects
-        es_conf = conf
-
 
 def get_es():
 

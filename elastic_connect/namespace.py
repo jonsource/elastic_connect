@@ -2,6 +2,7 @@ from elasticsearch import Elasticsearch
 
 _global_prefix = ''
 
+
 class Namespace(object):
     def __init__(self, name, es_conf, index_prefix=None):
         self.name = name
@@ -17,7 +18,7 @@ class Namespace(object):
             return model_class
 
         class NewModelClass(model_class):
-            #TODO: how to deal with __slots__
+            # TODO: how to deal with __slots__
             _es_namespace = None
             _es_connection = None
             __slots__ = model_class.__slots__
@@ -28,8 +29,13 @@ class Namespace(object):
 
     def get_es(self):
         if not self.es:
+            print("getting es", self.es_conf)
             self.es = Elasticsearch(self.es_conf)
         return self.es
+
+    def wait_for_yellow(self):
+        print("wait for yellow", self.get_es())
+        return self.get_es().cluster.health(wait_for_status="yellow")
 
     @property
     def index_prefix(self):

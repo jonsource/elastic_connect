@@ -3,16 +3,21 @@ import elastic_connect
 from elastic_connect import Model
 from elastic_connect.data_types import Keyword
 
+
 @pytest.fixture()
 def override_default_namespace():
     default = elastic_connect._namespaces['_default']
     old_prefix = default._index_prefix
     default._index_prefix = 'namespace_test_'
 
+    print("override default", default, default.__dict__)
+
     yield
 
     default._index_prefix = old_prefix
 
+
+@pytest.mark.namespace
 def test_default_namespace_prefix():
 
     class DnpModel(elastic_connect.Model):
@@ -21,6 +26,7 @@ def test_default_namespace_prefix():
     assert DnpModel.get_index() == 'test_model'
 
 
+@pytest.mark.namespace
 def test_default_namespace_prefix_override(override_default_namespace):
 
     class DnpModel(elastic_connect.Model):
@@ -29,6 +35,7 @@ def test_default_namespace_prefix_override(override_default_namespace):
     assert DnpModel.get_index() == 'test_namespace_test_model'
 
 
+@pytest.mark.namespace
 def test_two_namespaces_prefix(second_namespace):
 
     class TnpModel(elastic_connect.Model):
@@ -81,7 +88,8 @@ def fix_model_two_save(fix_model_one_save, second_namespace):
     assert not es.indices.exists(index=TwoSave.get_index())
 
 
-def test_save(fix_model_one_save, fix_model_two_save):
+@pytest.mark.namespace
+def test_namespace_save(fix_model_one_save, fix_model_two_save):
     cls1 = fix_model_one_save
     cls2 = fix_model_two_save
 

@@ -44,7 +44,7 @@ class Model(object):
         For ES < 5 returns what is defined in the database settings.
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
-
+        print("getindex", cls._es_namespace, cls._es_namespace.__dict__)
         if elastic_connect.compatibility >= 5:
             return cls._es_namespace.index_prefix + cls._meta['_doc_type']
         else:
