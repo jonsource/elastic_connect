@@ -11,12 +11,15 @@ class Join(BaseDataType):
 
         self.id_value = None
 
-        def split_classdef(classdef):
-            module, class_name = classdef.rsplit('.', 1)
-            return None, module, class_name
+        self.source = None
+        self.target = None
+        self._source_module, self._source = self.split_class_def(source)
+        self._target_module, self._target, self.target_property = self.parse_join_target(target)
 
-        self.source, self._source_module, self._source = split_classdef(source)
-        self.target, self._target_module, self._target = split_classdef(target)
+    @staticmethod
+    def split_class_def(class_def):
+        module, class_name = class_def.rsplit('.', 1)
+        return module, class_name
 
     @staticmethod
     def class_for_name(module_name, class_name):
@@ -24,6 +27,15 @@ class Join(BaseDataType):
         m = importlib.import_module(module_name)
         c = getattr(m, class_name)
         return c
+
+    @staticmethod
+    def parse_join_target(join_target):
+        target_property = None
+        parts = join_target.split(':')
+        if len(parts) == 2:
+            target_property = parts[1]
+        module, class_name = Join.split_class_def(parts[0])
+        return module, class_name, target_property
 
     def get_target(self):
         """Gets the target model of the join."""
@@ -52,7 +64,6 @@ class Join(BaseDataType):
     def _get_es_type(self):
         return 'keyword'
 
-
 class SingleJoin(Join):
     """1:1 model join."""
     def lazy_load(self, value):
@@ -65,6 +76,12 @@ class SingleJoin(Join):
             id = value
 
         return {self.name + '_id': id}
+
+    def on_update(self, value, model):
+        print("updating single model:%s:%s value:%s" % (model, self.target_property, value))
+        if self.target_property:
+            value._set_reference(self.target_property, model)
+        return super().on_update(value, model)
 
 class MultiJoin(Join):
     """1:N model join."""
@@ -87,3 +104,13 @@ class MultiJoin(Join):
         except (AttributeError, TypeError):
             ids = value
         return {self.name + '_id': ids}
+
+    def on_update(self, value, model):
+        print("updating multi model:%s:%s value:%s" % (model, self.target_property, value))
+        if self.target_property:
+            for val in value:
+                val._set_reference(self.target_property, model)
+        return super().on_update(value, model)
+
+    def get_default_value(self):
+        return []
