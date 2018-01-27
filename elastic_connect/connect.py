@@ -2,27 +2,20 @@ from elasticsearch import Elasticsearch
 import elasticsearch
 from collections import UserList
 import time
+from .namespace import _namespaces
+
 from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
-es = None
-es_conf = None
+es_conf = {'_default': {'es_conf': None}
+          }
 
 compatibility = 6
 index = 'api'
 
 
-def connect(conf):
-    global es_conf
-    if not es_conf:
-        # TODO handle reconnects
-        es_conf = conf
-
-
 def get_es():
-    global es
-    if not es:
-        es = Elasticsearch(es_conf)
-    return es
+
+    return _namespaces['_default'].get_es()
 
 
 class Result(UserList):
@@ -54,10 +47,12 @@ class DocTypeConnection(object):
 
     # TODO: sanitize input by https://stackoverflow.com/questions/16205341/symbols-in-query-string-for-elasticsearch
 
-    def __init__(self, model, es, index, doc_type, default_args={}):
-        self.es = es
+    def __init__(self, model, es_namespace, index, doc_type, default_args={}):
+        self.es_namespace = es_namespace
+        self.es = es_namespace.get_es()
         if compatibility >= 6:
-            self.index_name = doc_type
+            # TODO: write it better
+            self.index_name = es_namespace.index_prefix + doc_type
         else:
             self.index_name = index
         self.doc_type = doc_type
@@ -90,7 +85,7 @@ class DocTypeConnection(object):
         return helper
 
 
-def create_mappings(model_classes):
+def create_mappings(model_classes, namespace=None):
     """
     Creates index mapping in Elasticsearch for each model passed in.
     Doesn't update existing mappings.
@@ -99,7 +94,11 @@ def create_mappings(model_classes):
     """
 
     def safe_create(index, body):
-        es = get_es()
+        if namespace:
+            es = namespace.get_es()
+        else:
+            es = get_es()
+
         try:
             es.indices.create(index=index, body=body)
             print("** Index %s created" % index)
@@ -110,7 +109,7 @@ def create_mappings(model_classes):
 
     mappings = {}
     for model_class in model_classes:
-        mappings[model_class._meta['_doc_type']] = {"properties": model_class.get_es_mapping()}
+        mappings[model_class.get_index()] = {"properties": model_class.get_es_mapping()}
 
     created = []
     if compatibility >= 6:
@@ -123,7 +122,7 @@ def create_mappings(model_classes):
     return created
 
 
-def delete_index(index, timeout=2.0):
+def delete_index(index, timeout=2.0, namespace=None):
     """
     Deletes an index from Elasticsearch and blocks until it is deleted.
 
@@ -132,6 +131,11 @@ def delete_index(index, timeout=2.0):
     If timeout = 0 doesn't block and returns immediately
     :return: none
     """
+
+    if namespace:
+        es = namespace.get_es()
+    else:
+        es = get_es()
 
     result = es.indices.delete(index=index)
     rep = int(10 * timeout)
@@ -149,7 +153,7 @@ def delete_index(index, timeout=2.0):
     print("** Index %s deleted" % index)
 
 
-def delete_indices(indices):
+def delete_indices(indices, namespace=None):
     # TODO: delete the indices in parallel
     for index in indices:
-        delete_index(index)
+        delete_index(index, namespace=namespace)

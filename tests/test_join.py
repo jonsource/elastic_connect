@@ -59,28 +59,30 @@ class Many(Model):
 def fix_parent_child():
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[Parent, Child])
-    assert es.indices.exists(index='model_parent')
-    assert es.indices.exists(index='model_child')
+
+    assert es.indices.exists(index=Parent.get_index())
+    assert es.indices.exists(index=Child.get_index())
+
 
     yield
 
     elastic_connect.delete_indices(indices=indices)
-    assert not es.indices.exists(index='model_parent')
-    assert not es.indices.exists(index='model_child')
+    assert not es.indices.exists(index=Parent.get_index())
+    assert not es.indices.exists(index=Child.get_index())
 
 
 @pytest.fixture(scope="module")
 def fix_one_many():
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[One, Many])
-    assert es.indices.exists(index='model_one')
-    assert es.indices.exists(index='model_many')
+    assert es.indices.exists(index=One.get_index())
+    assert es.indices.exists(index=Many.get_index())
 
     yield
 
     elastic_connect.delete_indices(indices=indices)
-    assert not es.indices.exists(index='model_one')
-    assert not es.indices.exists(index='model_many')
+    assert not es.indices.exists(index=One.get_index())
+    assert not es.indices.exists(index=Many.get_index())
 
 
 def test_single_join(fix_parent_child):

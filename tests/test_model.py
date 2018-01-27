@@ -17,12 +17,12 @@ def fix_model_one_save():
 
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[OneSave])
-    assert es.indices.exists(index='model_save_one')
+    assert es.indices.exists(index=OneSave.get_index())
 
     yield OneSave
 
     elastic_connect.delete_indices(indices=indices)
-    assert not es.indices.exists(index='model_save_one')
+    assert not es.indices.exists(index=OneSave.get_index())
 
 
 def test_save(fix_model_one_save):

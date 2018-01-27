@@ -22,10 +22,12 @@ class Model(object):
     }
 
     _meta = {
-        '_doc_type': 'model'
+        '_doc_type': 'model',
     }
 
-    _es = None
+    print(elastic_connect._namespaces)
+    _es_namespace = elastic_connect._namespaces['_default']
+    _es_connection = None
 
     def __init__(self, **kw):
         """Creates an instance of the model using **kw parameters for setting values.
@@ -36,16 +38,17 @@ class Model(object):
             self.__update(type.to_dict(type.from_python(kw.get(property, None))))
 
     @classmethod
-    def _get_index(cls):
+    def get_index(cls):
         """Returns the name of the index this model is stored in.
 
         For ES < 5 returns what is defined in the database settings.
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
+        print("getindex", cls._es_namespace, cls._es_namespace.__dict__)
         if elastic_connect.compatibility >= 5:
-            return cls._meta['_doc_type']
+            return cls._es_namespace.index_prefix + cls._meta['_doc_type']
         else:
-            return elastic_connect.index
+            return cls._es_namespace.index_prefix + elastic_connect.index
 
     def _compute_id(self):
         """Count or return stored id for this model instance.
@@ -59,12 +62,16 @@ class Model(object):
         return self.id
 
     @classmethod
-    def get_es(cls):
-        if not cls._es:
-            cls._es = elastic_connect.DocTypeConnection(model=cls, es=elastic_connect.get_es(),
-                                                        index=cls._get_index(),
+    def get_es_connection(cls):
+        if not cls._es_connection:
+            print(cls.__name__ + " connecting to " + str(cls._es_namespace.__dict__))
+            cls._es_connection = elastic_connect.DocTypeConnection(model=cls, es_namespace=cls._es_namespace,
+                                                        index=cls.get_index(),
                                                         doc_type=cls._meta['_doc_type'])
-        return cls._es
+            print("connection index name " + cls._es_connection.index_name)
+        else:
+            print(cls.__name__ + " connection already established:", cls._es_connection.__dict__)
+        return cls._es_connection
 
     @classmethod
     def from_dict(cls, **kw):
@@ -105,10 +112,10 @@ class Model(object):
         """
 
         if model.id:
-            response = cls.get_es().create(id=model.id, body=model.to_es(exclude=['id']))
+            response = cls.get_es_connection().create(id=model.id, body=model.to_es(exclude=['id']))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
-            response = cls.get_es().index(body=model.to_es(exclude=['id']))
+            response = cls.get_es_connection().index(body=model.to_es(exclude=['id']))
         model.id = response['_id']
         return model
 
@@ -116,13 +123,13 @@ class Model(object):
         """Save a model that has an id, index a model without an id into Elasticsearch"""
 
         if self.id:
-            self.get_es().update(id=self.id, body={'doc': self.to_es(exclude=['id'])})
+            self.get_es_connection().update(id=self.id, body={'doc': self.to_es(exclude=['id'])})
         else:
-            self.get_es().index(body=self.to_es(exclude=['id']))
+            self.get_es_connection().index(body=self.to_es(exclude=['id']))
 
     def delete(self):
         """Delete a model from elasticsearch."""
-        self.get_es().delete(id=self.id)
+        self.get_es_connection().delete(id=self.id)
 
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
@@ -136,14 +143,14 @@ class Model(object):
     @classmethod
     def get(cls, id):
         """Get a model by id from Elasticsearch."""
-        ret = cls.get_es().get(id=id)
+        ret = cls.get_es_connection().get(id=id)
         return ret
 
     @classmethod
     def all(cls):
         """Get all models from Elasticsearch."""
 
-        return cls.get_es().search()
+        return cls.get_es_connection().search()
 
     @classmethod
     def find_by(cls, **kw):
@@ -153,7 +160,7 @@ class Model(object):
             model.find_by(email="test@test.cz")
         """
 
-        ret = cls.get_es().search(body={
+        ret = cls.get_es_connection().search(body={
             "query": {
                 "term": kw
             }
@@ -183,7 +190,7 @@ class Model(object):
     def refresh(cls):
         """Refresh the index where this model is stored to make all changes immediately visible to others."""
 
-        elastic_connect.get_es().indices.refresh(index=cls._get_index())
+        cls._es_namespace.get_es().indices.refresh(index=cls.get_index())
 
     def __setattr__(self, name, value):
         if name in self._mapping:
