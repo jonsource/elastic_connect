@@ -8,5 +8,5 @@ setup(
     packages=['elastic_connect'],
     license='MIT',
     description='Elasticsearch "ORM"',
-    install_requires=['elasticsearch', 'dateutil']
+    install_requires=['elasticsearch', 'dateutil', 'requests']
 )

@@ -49,6 +49,8 @@ def test_two_namespaces_prefix(second_namespace):
 @pytest.fixture(scope="module")
 def fix_model_one_save():
 
+    default_namespace = elastic_connect._namespaces['_default']
+
     class OneSave(Model):
         _meta = {
             '_doc_type': 'model_save'
@@ -58,16 +60,15 @@ def fix_model_one_save():
             'value': Keyword(name='value')
         }
 
-    es = OneSave._es_namespace.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[OneSave])
+    namespace = OneSave._es_namespace
+    indices = namespace.create_mappings(model_classes=[OneSave])
     assert OneSave.get_index() == 'test_model_save'
-    assert es.indices.exists(index=OneSave.get_index())
+    assert default_namespace.get_es().indices.exists(index=OneSave.get_index())
 
     yield OneSave
 
-    # TODO move delete_indices to Namespace
-    elastic_connect.delete_indices(indices=indices, namespace=OneSave._es_namespace)
-    assert not es.indices.exists(index=OneSave.get_index())
+    namespace.delete_indices(indices=indices)
+    assert not default_namespace.get_es().indices.exists(index=OneSave.get_index())
 
 
 @pytest.fixture(scope="module")
@@ -76,16 +77,15 @@ def fix_model_two_save(fix_model_one_save, second_namespace):
     OneSave = fix_model_one_save
     TwoSave = second_namespace.register_model_class(OneSave)
 
-    es = TwoSave._es_namespace.get_es()
-    # TODO move create_mappings to Namespace
-    indices = elastic_connect.create_mappings(model_classes=[TwoSave], namespace=TwoSave._es_namespace)
+    namespace = TwoSave._es_namespace
+    indices = namespace.create_mappings(model_classes=[TwoSave])
     assert TwoSave.get_index() == 'test_second_model_save'
-    assert es.indices.exists(index=TwoSave.get_index())
+    assert second_namespace.get_es().indices.exists(index=TwoSave.get_index())
 
     yield TwoSave
 
-    elastic_connect.delete_indices(indices=indices, namespace=TwoSave._es_namespace)
-    assert not es.indices.exists(index=TwoSave.get_index())
+    namespace.delete_indices(indices=indices)
+    assert not second_namespace.get_es().indices.exists(index=TwoSave.get_index())
 
 
 @pytest.mark.namespace

@@ -43,7 +43,7 @@ def fix_es():
     elastic_connect._namespaces['_default'].es_conf = [conf]
     print(elastic_connect._namespaces['_default'].es_conf)
     for namespace in elastic_connect._namespaces.values():
-        namespace.wait_for_yellow()
+        namespace.wait_for_ready()
         print(namespace.name + " ready!")
 
     yield

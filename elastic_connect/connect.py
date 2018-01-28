@@ -9,9 +9,6 @@ from elastic_connect.data_types.join import MultiJoin, SingleJoin
 es_conf = {'_default': {'es_conf': None}
           }
 
-compatibility = 6
-index = 'api'
-
 
 def get_es():
 
@@ -50,11 +47,7 @@ class DocTypeConnection(object):
     def __init__(self, model, es_namespace, index, doc_type, default_args={}):
         self.es_namespace = es_namespace
         self.es = es_namespace.get_es()
-        if compatibility >= 6:
-            # TODO: write it better
-            self.index_name = es_namespace.index_prefix + doc_type
-        else:
-            self.index_name = index
+        self.index_name = es_namespace.index_prefix + doc_type
         self.doc_type = doc_type
         self.default_args = default_args
         self.model = model
@@ -85,75 +78,13 @@ class DocTypeConnection(object):
         return helper
 
 
-def create_mappings(model_classes, namespace=None):
-    """
-    Creates index mapping in Elasticsearch for each model passed in.
-    Doesn't update existing mappings.
-    :param model_classes: a list of classes for which indices are created
-    :return: returns the names of indices which were actually created
-    """
-
-    def safe_create(index, body):
-        if namespace:
-            es = namespace.get_es()
-        else:
-            es = get_es()
-
-        try:
-            es.indices.create(index=index, body=body)
-            print("** Index %s created" % index)
-        except elasticsearch.exceptions.RequestError as e:
-            print("** Index %s already exists!!" % index)
-            if e.error != 'index_already_exists_exception':
-                raise e
-
-    mappings = {}
-    for model_class in model_classes:
-        mappings[model_class.get_index()] = {"properties": model_class.get_es_mapping()}
-
-    created = []
-    if compatibility >= 6:
-        for name in mappings.keys():
-            safe_create(index=name, body={"mappings": {name: mappings[name]}})
-            created.append(name)
-    else:
-        safe_create(index=index, body={"mappings": mappings})
-        created.append(index)
-    return created
+def create_mappings(model_classes):
+    return _namespaces['_default'].create_mappings(model_classes)
 
 
-def delete_index(index, timeout=2.0, namespace=None):
-    """
-    Deletes an index from Elasticsearch and blocks until it is deleted.
-
-    :param index: index to be deleted
-    :param timeout: default 2, if the index is not deleted after the number of seconds, Exception is riased.
-    If timeout = 0 doesn't block and returns immediately
-    :return: none
-    """
-
-    if namespace:
-        es = namespace.get_es()
-    else:
-        es = get_es()
-
-    result = es.indices.delete(index=index)
-    rep = int(10 * timeout)
-
-    if not timeout:
-        return
-
-    while rep and es.indices.exists(index=index):
-        rep -= 1
-        time.sleep(0.1)
-
-    if not rep and es.indices.exists(index=index):
-        raise Exception("Timeout. Index %s still exists after %s seconds." % (index, timeout))
-
-    print("** Index %s deleted" % index)
+def delete_index(index, timeout=2.0):
+    return _namespaces['_default'].delete_index(index, timeout)
 
 
-def delete_indices(indices, namespace=None):
-    # TODO: delete the indices in parallel
-    for index in indices:
-        delete_index(index, namespace=namespace)
+def delete_indices(indices):
+    return _namespaces['_default'].delete_indices(indices)

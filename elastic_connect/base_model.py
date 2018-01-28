@@ -45,10 +45,7 @@ class Model(object):
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
         print("getindex", cls._es_namespace, cls._es_namespace.__dict__)
-        if elastic_connect.compatibility >= 5:
-            return cls._es_namespace.index_prefix + cls._meta['_doc_type']
-        else:
-            return cls._es_namespace.index_prefix + elastic_connect.index
+        return cls._es_namespace.index_prefix + cls._meta['_doc_type']
 
     def _compute_id(self):
         """Count or return stored id for this model instance.
