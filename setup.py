@@ -5,7 +5,7 @@ setup(
     version='0.1.2',
     author='Jan Sourek',
     author_email='jan.sourek@gmail.com',
-    packages=['elastic_connect'],
+    packages=['elastic_connect', 'elastic_connect.data_types'],
     license='MIT',
     description='Elasticsearch "ORM"',
     install_requires=['elasticsearch', 'python-dateutil', 'requests']

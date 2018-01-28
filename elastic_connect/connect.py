@@ -1,10 +1,6 @@
-from elasticsearch import Elasticsearch
-import elasticsearch
 from collections import UserList
-import time
 from .namespace import _namespaces
 
-from elastic_connect.data_types.join import MultiJoin, SingleJoin
 
 es_conf = {'_default': {'es_conf': None}
           }
