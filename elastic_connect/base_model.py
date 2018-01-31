@@ -44,7 +44,7 @@ class Model(object):
         For ES < 5 returns what is defined in the database settings.
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
-        print("getindex", cls._es_namespace, cls._es_namespace.__dict__)
+        # print("getindex", cls._es_namespace, cls._es_namespace.__dict__)
         return cls._es_namespace.index_prefix + cls._meta['_doc_type']
 
     def _compute_id(self):
@@ -61,13 +61,13 @@ class Model(object):
     @classmethod
     def get_es_connection(cls):
         if not cls._es_connection:
-            print(cls.__name__ + " connecting to " + str(cls._es_namespace.__dict__))
+            # print(cls.__name__ + " connecting to " + str(cls._es_namespace.__dict__))
             cls._es_connection = elastic_connect.DocTypeConnection(model=cls, es_namespace=cls._es_namespace,
                                                         index=cls.get_index(),
                                                         doc_type=cls._meta['_doc_type'])
-            print("connection index name " + cls._es_connection.index_name)
-        else:
-            print(cls.__name__ + " connection already established:", cls._es_connection.__dict__)
+            # print("connection index name " + cls._es_connection.index_name)
+        # else:
+            # print(cls.__name__ + " connection already established:", cls._es_connection.__dict__)
         return cls._es_connection
 
     @classmethod
@@ -82,9 +82,11 @@ class Model(object):
         """Create and return an unsaved model instance based on Elasticsearch query result."""
 
         # model = cls(**hit['_source'])  # it;s better to create an empty model, but is it always possible ?
-        model = cls()
+
+        kwargs = {}
         for property, type in cls._mapping.items():
-            model.__update(type.to_dict(type.from_es(hit['_source'])))
+            kwargs.update(type.to_dict(type.from_es(hit['_source'])))
+        model = cls(**kwargs)
         model.id = hit['_id']
         return model
 
@@ -114,6 +116,8 @@ class Model(object):
         else:
             response = cls.get_es_connection().index(body=model.to_es(exclude=['id']))
         model.id = response['_id']
+        print("model.id", model.id)
+        model.post_save()
         return model
 
     def save(self):
@@ -122,7 +126,17 @@ class Model(object):
         if self.id:
             self.get_es_connection().update(id=self.id, body={'doc': self.to_es(exclude=['id'])})
         else:
-            self.get_es_connection().index(body=self.to_es(exclude=['id']))
+            response = self.get_es_connection().index(body=self.to_es(exclude=['id']))
+            self.id = response['_id']
+            print("model.id from save", self.id)
+        self.post_save()
+
+    def post_save(self):
+        for property, type in self._mapping.items():
+            ret = type.on_save(model=self)
+        if ret is not None:
+            # resave, because some child models were updated
+            self.save()
 
     def delete(self):
         """Delete a model from elasticsearch."""
@@ -177,8 +191,21 @@ class Model(object):
                 ret.update(type.to_es(self.__getattribute__(property)))
         return ret
 
+    def to_dict(self, exclude=["password"]):
+        """Serilaizes the model for storing to Elasticsearch.
+
+        Joins are transformed from join: model format to join_id: id format.
+        Datetime attributes are converted to iso format.
+        """
+
+        ret = {}
+        for property, type in self._mapping.items():
+            if property not in exclude:
+                ret.update(type.to_dict(self.__getattribute__(property)))
+        return ret
+
     def __repr__(self):
-        return object.__repr__(self) + str(self.to_es())
+        return object.__repr__(self) + str(self.to_dict())
 
     def __str__(self):
         return str(self.to_es())
@@ -190,20 +217,18 @@ class Model(object):
         cls._es_namespace.get_es().indices.refresh(index=cls.get_index())
 
     def __setattr__(self, name, value):
+        print("setting %s.%s = %s" % (self, name, value))
         if name in self._mapping:
             self.__update(self._mapping[name].on_update(value, self))
+            # print("after", repr(self))
             return
         return super().__setattr__(name, value)
 
     def __update(self, value):
+        # print("__update", value)
         for key, val in value.items():
             super().__setattr__(key, val)
 
-    def _set_reference(self, name, value):
-        current = self.__getattribute__(name)
-        if type(current) == list and value.id not in [o.id for o in current]:
-            return current.append(value)
-        return super().__setattr__(name, value)
 
     @classmethod
     def get_es_mapping(cls):

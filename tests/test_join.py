@@ -76,7 +76,7 @@ class ManyWithReference(Model):
     _mapping = {
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
-        'one': SingleJoin(name='one', source='test_join.Many', target='test_join.OneWithReference:many'),
+        'one': SingleJoin(name='one', source='test_join.ManyWithReference', target='test_join.OneWithReference:many'),
     }
 
 
@@ -147,8 +147,8 @@ def test_single_join(fix_parent_child):
 
 
 def test_multi_join(fix_one_many):
-    many1 = Many.create(value='one')  # type: Many
-    many2 = Many.create(value='two')  # type: Many
+    many1 = Many.create(value='one_slave')  # type: Many
+    many2 = Many.create(value='two_sakve')  # type: Many
     one = One.create(value='boss', many=[many1, many2])  # type: One
     print("one", one)
     One.refresh()
@@ -164,9 +164,9 @@ def test_multi_join(fix_one_many):
     assert loaded.many[1].id == many2.id
 
 
-def test_single_join_save(fix_parent_child):
-    child = Child.create(value='two_val')  # type: Child
-    parent = Parent.create(value='one_val')  # type: Parent
+def test_single_join_explicit_save(fix_parent_child):
+    child = Child.create(value='child_val')  # type: Child
+    parent = Parent.create(value='parent_val')  # type: Parent
 
     parent.dependant = child
     parent.save()
@@ -181,9 +181,9 @@ def test_single_join_save(fix_parent_child):
     assert loaded.dependant.id == child.id
 
 
-def test_multi_join_save(fix_one_many):
-    many1 = Many.create(value='one')  # type: Many
-    many2 = Many.create(value='two')  # type: Many
+def test_multi_join_explicit_save(fix_one_many):
+    many1 = Many.create(value='child_val1')  # type: Many
+    many2 = Many.create(value='child_val2')  # type: Many
 
     one = One.create(value='boss')  # type: One
     one.many = [many1, many2]
@@ -196,6 +196,43 @@ def test_multi_join_save(fix_one_many):
     assert len(loaded.many) == 2
     assert loaded.many[0].id == many1.id
     assert loaded.many[1].id == many2.id
+
+def test_single_join_implicit_save(fix_parent_child):
+    child = Child(value='child_val')  # type: Child
+    parent = Parent.create(value='parent_val', dependant=child)  # type: Parent
+
+    print("saved", parent.to_es())
+    Child.refresh()
+    Parent.refresh()
+
+    loaded = Parent.get(parent.id)
+    print("loaded", loaded.to_es())
+    loaded._lazy_load()
+    assert loaded.dependant.id == child.id
+
+
+def test_multi_join_implicit_save(fix_one_many):
+    many1 = Many(value='one')  # type: Many
+    many2 = Many(value='two')  # type: Many
+
+    one = One.create(value='boss', many=[many1, many2])  # type: One
+
+    print("one", one, one.many)
+
+    m1 = one.many[0]
+    m2 = one.many[1]
+
+    assert many1.id == m1.id
+    assert many2.id == m2.id
+
+    One.refresh()
+    Many.refresh()
+
+    loaded = One.get(one.id)
+    loaded._lazy_load()
+    assert len(loaded.many) == 2
+    assert loaded.many[0].id == m1.id
+    assert loaded.many[1].id == m2.id
 
 
 def test_multi_join_references(fix_one_many_with_reference):
@@ -228,9 +265,10 @@ def test_multi_join_references(fix_one_many_with_reference):
 
 def test_single_join_reference(fix_one_many_with_reference):
     one = OneWithReference.create(value='boss')  # type: OneWithReference
-    many = ManyWithReference.create(value='one')  # type: ManyWithReference
+    many = ManyWithReference.create(value='slave')  # type: ManyWithReference
 
     assert one.many == []
+    print("   ----------       ")
     many.one = one
     assert len(one.many)
     assert one.many[0].id == many.id
@@ -244,3 +282,23 @@ def test_single_join_reference(fix_one_many_with_reference):
     loaded._lazy_load()
     o = loaded.one
     assert o.id == one.id
+
+
+def test_single_join_reference_implicit_save(fix_one_many_with_reference):
+    one = OneWithReference(value='boss')  # type: OneWithReference
+    print("   ----------       ")
+    many = ManyWithReference.create(value='slave', one=one)  # type: ManyWithReference
+    print("   ----------       ")
+
+
+    print("one", one)
+    print('many', repr(many))
+    print("   ----------       ")
+
+    OneWithReference.refresh()
+    ManyWithReference.refresh()
+
+    loaded = ManyWithReference.get(many.id)
+    print("loaded", loaded)
+    loaded._lazy_load()
+    assert loaded.one.id == one.id

@@ -1,6 +1,6 @@
 from abc import ABC
 import datetime
-import dateutil
+from dateutil import parser
 
 
 class BaseDataType(ABC):
@@ -11,14 +11,20 @@ class BaseDataType(ABC):
     def from_python(self, value):
         return value
 
+    def serialize(self, value):
+        return value
+
+    def deserialize(self, value):
+        return value
+
     def from_es(self, es_hit):
-        return self.from_python(es_hit.get(self.name, None))
+        return self.deserialize(es_hit.get(self.name, None))
 
     def to_dict(self, value):
         return {self.name: value}
 
     def to_es(self, value):
-        return self.to_dict(value)
+        return self.to_dict(self.serialize(value))
 
     def lazy_load(self, value):
         return {self.name: value}
@@ -40,6 +46,9 @@ class BaseDataType(ABC):
     def get_default_value(self):
         return None
 
+    def on_save(self, model):
+        return None
+
     def __repr__(self):
         return object.__repr__(self) + str(self.__dict__)
 
@@ -55,9 +64,12 @@ class Text(BaseDataType):
 class Date(BaseDataType):
 
     def from_python(self, value):
-        if not isinstance(value, datetime.datetime):
-            value = dateutil.parser.parse(value)
+        if not isinstance(value, datetime.datetime) and value is not None:
+            value = self.deserialize(value)
         return super().from_python(value)
 
-    def to_es(self, value):
-        return super().to_es(value.to_iso())
+    def deserialize(self, value):
+        return parser.parse(value)
+
+    def serialize(self, value):
+        return value.isoformat()
