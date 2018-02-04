@@ -265,7 +265,7 @@ def test_multi_join_implicit_save(fix_one_many):
     assert loaded.many[1].id == m2.id
 
 
-def test_multi_join_references(fix_one_many_with_reference):
+def test_multi_join_reference(fix_one_many_with_reference):
     many1 = ManyWithReference.create(value='one')  # type: ManyWithReference
     many2 = ManyWithReference.create(value='two')  # type: ManyWithReference
 
@@ -293,12 +293,31 @@ def test_multi_join_references(fix_one_many_with_reference):
     assert lm2.one_id == loaded.id
 
 
+def test_multi_join_reference_implicit_save(fix_one_many_with_reference):
+    many1 = ManyWithReference(value='one')  # type: ManyWithReference
+    many2 = ManyWithReference(value='two')  # type: ManyWithReference
+
+    one = OneWithReference.create(value='boss', many=[many1, many2])  # type: OneWithReference
+
+    assert many1.one.id == one.id
+    assert many2.one.id == one.id
+
+    OneWithReference.refresh()
+    ManyWithReference.refresh()
+
+    loaded = OneWithReference.get(one.id)
+    loaded._lazy_load()
+    lm1 = loaded.many[0]
+    lm2 = loaded.many[1]
+    assert lm1.one_id == loaded.id
+    assert lm2.one_id == loaded.id
+
+
 def test_single_join_reference(fix_one_many_with_reference):
     one = OneWithReference.create(value='boss')  # type: OneWithReference
     many = ManyWithReference.create(value='slave')  # type: ManyWithReference
 
     assert one.many == []
-    print("   ----------       ")
     many.one = one
     assert len(one.many)
     assert one.many[0].id == many.id
@@ -316,19 +335,12 @@ def test_single_join_reference(fix_one_many_with_reference):
 
 def test_single_join_reference_implicit_save(fix_one_many_with_reference):
     one = OneWithReference(value='boss')  # type: OneWithReference
-    print("   ----------       ")
     many = ManyWithReference.create(value='slave', one=one)  # type: ManyWithReference
-    print("   ----------       ")
 
-
-    print("one", one)
-    print('many', repr(many))
-    print("   ----------       ")
-
+    assert one.many[0].id == many.id
     OneWithReference.refresh()
     ManyWithReference.refresh()
 
     loaded = ManyWithReference.get(many.id)
-    print("loaded", loaded)
     loaded._lazy_load()
     assert loaded.one.id == one.id

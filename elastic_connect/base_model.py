@@ -35,8 +35,11 @@ class Model(object):
 
         properties defined as 'date' in cls._mapping are converted to datetime
         """
+
         for property, type in self._mapping.items():
-            self.__update(type.to_dict(type.from_python(kw.get(property, type.get_default_value()))))
+            super().__setattr__(property, type.get_default_value())
+        for property, type in self._mapping.items():
+            self.__update(type.on_update(type.from_python(kw.get(property, type.get_default_value())), self))
 
     @classmethod
     def get_index(cls):
@@ -87,8 +90,8 @@ class Model(object):
         kwargs = {}
         for property, type in cls._mapping.items():
             kwargs.update(type.to_dict(type.from_es(hit['_source'])))
+            kwargs['id'] = hit['_id']
         model = cls(**kwargs)
-        model.id = hit['_id']
         return model
 
     @classmethod
@@ -218,7 +221,7 @@ class Model(object):
         cls._es_namespace.get_es().indices.refresh(index=cls.get_index())
 
     def __setattr__(self, name, value):
-        print("setting %s.%s = %s" % (self, name, value))
+        print("setting %s.%s = %s" % (self.__class__.__name__, name, value))
         if name in self._mapping:
             self.__update(self._mapping[name].on_update(value, self))
             # print("after", repr(self))

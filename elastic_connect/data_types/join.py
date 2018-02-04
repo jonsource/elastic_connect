@@ -67,6 +67,11 @@ class Join(BaseDataType):
     def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
         return None
 
+    def _is_value_model(self, value):
+        if value is None or isinstance(value, str):
+            return False
+        return True
+
 
 class SingleJoin(Join):
     """1:1 model join."""
@@ -85,7 +90,7 @@ class SingleJoin(Join):
         return {self.name + '_id': id}
 
     def on_update(self, value: 'base_model.Model', model: 'base_model.Model'):
-        if self.target_property:
+        if self.target_property and self._is_value_model(value):
             print("single::on_update %s.%s = %s -> %s" % (model, self.name, value, self.name))
             target_type = value._mapping[self.target_property]
             target_type.insert_reference(model, value)
@@ -131,6 +136,8 @@ class MultiJoin(Join):
         if self.target_property:
             print("multi::on_update %s.%s = %s -> %s" % (model, self.name, value, self.name))
             for val in value:
+                if not self._is_value_model(val):
+                    continue
                 target_type = val._mapping[self.target_property]
                 target_type.insert_reference(model, val)
         return super().on_update(value, model)
