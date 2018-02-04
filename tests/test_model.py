@@ -7,6 +7,8 @@ from elastic_connect.data_types import Keyword
 def fix_model_one_save():
 
     class OneSave(Model):
+        __slots__ = ('value', )
+
         _meta = {
             '_doc_type': 'model_save_one'
         }

@@ -60,3 +60,15 @@ def test_created_model(CreatedSlots, CreatedNoSlots):
     s = CreatedNoSlots(value="12")
     assert json.dumps(s) == '{"id":null,"value":"12"}'
     assert s.__dict__ == {'value': '12'}
+
+
+def test_slots_raise_when_slot_is_missing(SimpleSlots):
+    one = SimpleSlots(value="val")
+    with pytest.raises(AttributeError):
+        one.not_in_slots = 'fail'
+
+
+def test_no_slots_dont_raise_when_missing(SimpleNoSlots):
+    one = SimpleNoSlots(value="val")
+    one.not_in_slots = 'ok'
+    assert one.not_in_slots == 'ok'

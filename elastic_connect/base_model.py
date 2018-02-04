@@ -1,5 +1,6 @@
 import elastic_connect
 import elastic_connect.data_types as data_types
+import elastic_connect.data_types.base
 
 
 class Model(object):
@@ -17,7 +18,7 @@ class Model(object):
 
     __slots__ = ('id', )
 
-    _mapping = {
+    _mapping = {  # type: dict[str:elastic_connect.data_types.base.BaseDataType]
         'id': data_types.Keyword(name='id'),
     }
 

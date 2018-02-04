@@ -71,7 +71,10 @@ class Join(BaseDataType):
 class SingleJoin(Join):
     """1:1 model join."""
     def lazy_load(self, value: str):
-        return {self.name: self.get_target().get(value)}
+        loaded = self.get_default_value()
+        if value:
+            loaded = self.get_target().get(value)
+        return {self.name: loaded}
 
     def to_es(self, value: (str, 'base_model.Model')):
         try:

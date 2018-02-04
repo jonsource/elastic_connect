@@ -5,7 +5,7 @@ import elastic_connect
 
 
 class Parent(Model):
-    __slots__ = ('id', 'value', 'dependant', 'dependant_id')
+    __slots__ = ('id', 'value', 'child', 'child_id')
 
     _meta = {
         '_doc_type': 'model_parent'
@@ -13,19 +13,20 @@ class Parent(Model):
     _mapping = {
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
-        'dependant': SingleJoin(name='dependant', source='test_join.Parent', target='test_join.Child')
+        'child': SingleJoin(name='child', source='test_join.Parent', target='test_join.Child')
     }
 
 
 class Child(Model):
-    __slots__ = ('id', 'value')
+    __slots__ = ('id', 'value', 'parent', 'parent_id')
 
     _meta = {
         '_doc_type': 'model_child'
     }
     _mapping = {
         'id': Keyword(name='id'),
-        'value': Keyword(name='value')
+        'value': Keyword(name='value'),
+        'parent': SingleJoin(name='parent', source='test_join.Child', target='test_join.Parent')
     }
 
 
@@ -124,61 +125,89 @@ def fix_one_many_with_reference():
 
 
 def test_single_join(fix_parent_child):
-    child = Child.create(value='two_val')  # type: Child
-    parent = Parent.create(value='one_val', dependant=child)  # type: Parent
-    print("parent", parent)
+    child = Child.create(value='child_val')  # type: Child
+    parent = Parent.create(value='parent_val', child=child)  # type: Parent
 
     Parent.refresh()
     Child.refresh()
 
+    # don't make two way references by default
+    assert child.parent is None
+
     loaded = Parent.get(parent.id)
-    print("loaded", loaded)
     loaded._lazy_load()
-    print("loaded", loaded)
 
-    assert loaded.dependant.id == child.id
+    # test loading of joind model
+    assert loaded.child.id == child.id
 
+    # resave and try loading again
     loaded.save()
     loaded = Parent.get(parent.id)
-    print(loaded)
     loaded._lazy_load()
-    print(loaded)
-    assert loaded.dependant.id == child.id
+    assert loaded.child.id == child.id
+
+
+def test_single_join_empty(fix_parent_child):
+    parent = Parent.create(value='parent_val')  # type: Parent
+
+    Parent.refresh()
+
+    loaded = Parent.get(parent.id)
+    loaded._lazy_load()
+
+    # test loading of empty join
+    assert loaded.child_id is None
+    assert loaded.child is None
 
 
 def test_multi_join(fix_one_many):
     many1 = Many.create(value='one_slave')  # type: Many
     many2 = Many.create(value='two_sakve')  # type: Many
     one = One.create(value='boss', many=[many1, many2])  # type: One
-    print("one", one)
+
+    assert many1.one is None
+    assert many2.one is None
+
     One.refresh()
     Many.refresh()
 
     loaded = One.get(one.id)
-    print("loaded", loaded)
     loaded._lazy_load()
 
-    print("lazy_loaded", loaded)
     assert len(loaded.many) == 2
     assert loaded.many[0].id == many1.id
     assert loaded.many[1].id == many2.id
+    assert loaded.many[0].one is None
+    assert loaded.many[1].one is None
+
+
+def test_multi_join_empty(fix_one_many):
+    one = One.create(value='boss')  # type: One
+
+    One.refresh()
+
+    loaded = One.get(one.id)
+    loaded._lazy_load()
+
+    assert len(loaded.many_id) == 0
+    assert len(loaded.many) == 0
 
 
 def test_single_join_explicit_save(fix_parent_child):
     child = Child.create(value='child_val')  # type: Child
     parent = Parent.create(value='parent_val')  # type: Parent
 
-    parent.dependant = child
+    parent.child = child
     parent.save()
 
     print("saved", parent.to_es())
     Child.refresh()
     Parent.refresh()
 
-    loaded = Parent.get(parent.id)
+    loaded = Parent.get(parent.id)  # type: Parent
     print("loaded", loaded.to_es())
     loaded._lazy_load()
-    assert loaded.dependant.id == child.id
+    assert loaded.child.id == child.id
 
 
 def test_multi_join_explicit_save(fix_one_many):
@@ -197,18 +226,19 @@ def test_multi_join_explicit_save(fix_one_many):
     assert loaded.many[0].id == many1.id
     assert loaded.many[1].id == many2.id
 
+
 def test_single_join_implicit_save(fix_parent_child):
     child = Child(value='child_val')  # type: Child
-    parent = Parent.create(value='parent_val', dependant=child)  # type: Parent
+    parent = Parent.create(value='parent_val', child=child)  # type: Parent
 
     print("saved", parent.to_es())
     Child.refresh()
     Parent.refresh()
 
-    loaded = Parent.get(parent.id)
+    loaded = Parent.get(parent.id)  # type: Parent
     print("loaded", loaded.to_es())
     loaded._lazy_load()
-    assert loaded.dependant.id == child.id
+    assert loaded.child.id == child.id
 
 
 def test_multi_join_implicit_save(fix_one_many):
