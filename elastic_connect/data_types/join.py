@@ -107,6 +107,7 @@ class SingleJoin(Join):
             return value
         return None
 
+
 class MultiJoin(Join):
     """1:N model join."""
 
@@ -156,3 +157,31 @@ class MultiJoin(Join):
         if len(ret):
             return ret
         return None
+
+
+class LooseJoin(Join):
+    def to_es(self, value):
+        return {}
+
+    def lazy_load(self, value: str):
+        return {self.name: self.get_default_value()}
+
+    def _has_es_type(self):
+        return False
+
+    def from_es(self, es_hit):
+        return self.get_default_value()
+
+
+class SingleJoinLoose(SingleJoin, LooseJoin):
+    def to_dict(self, value: any):
+        to_es = super().to_es(value)
+        to_es.update({self.name: value})
+        return to_es
+
+
+class MultiJoinLoose(MultiJoin, LooseJoin):
+    def to_dict(self, value: any):
+        to_es = super().to_es(value)
+        to_es.update({self.name: value})
+        return to_es

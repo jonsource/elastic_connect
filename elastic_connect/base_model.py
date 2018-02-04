@@ -221,7 +221,7 @@ class Model(object):
         cls._es_namespace.get_es().indices.refresh(index=cls.get_index())
 
     def __setattr__(self, name, value):
-        print("setting %s.%s = %s" % (self.__class__.__name__, name, value))
+        #print("setting %s.%s = %s" % (self.__class__.__name__, name, value))
         if name in self._mapping:
             self.__update(self._mapping[name].on_update(value, self))
             # print("after", repr(self))

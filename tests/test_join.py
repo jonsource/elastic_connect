@@ -1,6 +1,6 @@
 import pytest
 from elastic_connect.base_model import Model
-from elastic_connect.data_types import Keyword, SingleJoin, MultiJoin
+from elastic_connect.data_types import Keyword, SingleJoin, MultiJoin, SingleJoinLoose, MultiJoinLoose
 import elastic_connect
 
 
@@ -81,6 +81,27 @@ class ManyWithReference(Model):
     }
 
 
+class User(Model):
+    __slots__ = ('value', 'key', 'key_id', 'keys', 'keys_id')
+
+    _mapping = {
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'key': SingleJoinLoose(name='key', source='test_join.User', target='test_join.Key'),
+        'keys': MultiJoinLoose(name='keys', source='test_join.User', target='test_join.Key'),
+    }
+
+
+class Key(Model):
+    __slots__ = ('value', 'user', 'user_id')
+
+    _mapping = {
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'user': SingleJoin(name='user', source='test_join.Key', target='test_join.User'),
+    }
+
+
 @pytest.fixture(scope="module")
 def fix_parent_child():
     es = elastic_connect.get_es()
@@ -122,6 +143,22 @@ def fix_one_many_with_reference():
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneWithReference.get_index())
     assert not es.indices.exists(index=ManyWithReference.get_index())
+
+
+@pytest.fixture(scope="module")
+def fix_user_key():
+    es = elastic_connect.get_es()
+    indices = elastic_connect.create_mappings(model_classes=[User, Key])
+
+    assert es.indices.exists(index=User.get_index())
+    assert es.indices.exists(index=Key.get_index())
+
+
+    yield
+
+    elastic_connect.delete_indices(indices=indices)
+    assert not es.indices.exists(index=User.get_index())
+    assert not es.indices.exists(index=Key.get_index())
 
 
 def test_single_join(fix_parent_child):
@@ -344,3 +381,32 @@ def test_single_join_reference_implicit_save(fix_one_many_with_reference):
     loaded = ManyWithReference.get(many.id)
     loaded._lazy_load()
     assert loaded.one.id == one.id
+
+
+def test_single_join_loose(fix_user_key):
+    u = User.create(value='pepa')  # type: User
+    k1 = Key.create(value='111', user=u)  # type: Key
+    k2 = Key.create(value='222', user=u)  # type: Key
+
+    u.key = k2
+    u.keys = [k1, k2]
+    u.save()
+    assert u.key.id == k2.id
+
+    User.refresh()
+    Key.refresh()
+
+    lu = User.get(u.id)  # type: User
+    lu._lazy_load()
+    assert lu.key_id is None
+    assert lu.key is None
+    assert len(lu.keys_id) == 0
+    assert len(lu.keys) == 0
+
+    lk = Key.get(k1.id)  # type: Key
+    lk._lazy_load()
+    assert lk.user.id == u.id
+
+    lk = Key.get(k2.id)  # type: Key
+    lk._lazy_load()
+    assert lk.user.id == u.id
