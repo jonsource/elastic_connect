@@ -75,7 +75,11 @@ class Join(BaseDataType):
 
 class SingleJoin(Join):
     """1:1 model join."""
-    def lazy_load(self, value: str):
+    def lazy_load(self, model):
+        try:
+            value = model.__getattribute__(self.name).id
+        except AttributeError:
+            value = model.__getattribute__(self.name + '_id')
         loaded = self.get_default_value()
         if value:
             loaded = self.get_target().get(value)
@@ -120,8 +124,15 @@ class MultiJoin(Join):
             self.join_by = self.get_source()._mapping['_name'] + '_id'
         return self.join_by
 
-    def lazy_load(self, value: str):
-        return {self.name: [self.get_target().get(val) for val in value]}
+    def lazy_load(self, model):
+        try:
+            value = [v.id for v in model.__getattribute__(self.name)]
+        except AttributeError:
+            value = model.__getattribute__(self.name + '_id')
+        print("lazy", self.name, value)
+        ret = {self.name: [self.get_target().get(val) for val in value]}
+        print(ret)
+        return ret
 
     def to_es(self, value: any):
         try:

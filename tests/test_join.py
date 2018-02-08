@@ -84,6 +84,9 @@ class ManyWithReference(Model):
 class User(Model):
     __slots__ = ('value', 'key', 'key_id', 'keys', 'keys_id')
 
+    _meta = {
+        '_doc_type': 'model_user'
+    }
     _mapping = {
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
@@ -95,6 +98,9 @@ class User(Model):
 class Key(Model):
     __slots__ = ('value', 'user', 'user_id')
 
+    _meta = {
+        '_doc_type': 'model_key'
+    }
     _mapping = {
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
@@ -383,6 +389,10 @@ def test_single_join_reference_implicit_save(fix_one_many_with_reference):
     assert loaded.one.id == one.id
 
 
+def test_loose_join_mapping():
+    assert User.get_es_mapping() == {'value': {'type': 'keyword'}}
+
+
 def test_single_join_loose(fix_user_key):
     u = User.create(value='pepa')  # type: User
     k1 = Key.create(value='111', user=u)  # type: Key
@@ -410,3 +420,32 @@ def test_single_join_loose(fix_user_key):
     lk = Key.get(k2.id)  # type: Key
     lk._lazy_load()
     assert lk.user.id == u.id
+
+
+def test_multi_join_reference_double_load(fix_one_many_with_reference):
+    many1 = ManyWithReference(value='one')  # type: ManyWithReference
+    many2 = ManyWithReference(value='two')  # type: ManyWithReference
+
+    one = OneWithReference.create(value='boss', many=[many1, many2])  # type: OneWithReference
+
+    assert many1.one.id == one.id
+    assert many2.one.id == one.id
+
+    OneWithReference.refresh()
+    ManyWithReference.refresh()
+
+    print("*-*--------------")
+    loaded = OneWithReference.get(one.id)
+    print(loaded)
+    loaded._lazy_load()
+    print(loaded.many)
+    print(loaded.many_id)
+    assert loaded.many[0].one_id == one.id
+    assert loaded.many[1].one_id == one.id
+
+    loaded._lazy_load()
+    print(loaded.many)
+    print(loaded.many_id)
+    print(loaded.many_id)
+    assert loaded.many[0].one_id == one.id
+    assert loaded.many[1].one_id == one.id

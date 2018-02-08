@@ -37,7 +37,7 @@ class Model(object):
         """
 
         for property, type in self._mapping.items():
-            super().__setattr__(property, type.get_default_value())
+            self.__update(type.to_dict(type.get_default_value()))
         for property, type in self._mapping.items():
             self.__update(type.on_update(type.from_python(kw.get(property, type.get_default_value())), self))
 
@@ -133,14 +133,19 @@ class Model(object):
             response = self.get_es_connection().index(body=self.to_es(exclude=['id']))
             self.id = response['_id']
             print("model.id from save", self.id)
-        self.post_save()
+        return self.post_save()
 
     def post_save(self):
+        print("post_save", self.__class__.__name__, self.id)
+        ret = []
         for property, type in self._mapping.items():
-            ret = type.on_save(model=self)
-        if ret is not None:
+            ret.append(type.on_save(model=self))
+        print("post_save ret", self.id, ret)
+        ret = [r for r in ret if r is not None]
+        if len(ret):
             # resave, because some child models were updated
             self.save()
+        return self
 
     def delete(self):
         """Delete a model from elasticsearch."""
@@ -151,7 +156,8 @@ class Model(object):
         for property, type in self._mapping.items():
             if property + '_id' not in self.__slots__:
                 continue
-            self.__update(type.lazy_load(self.__getattribute__(property + '_id')))
+            print("pre lazy", property, self.__getattribute__(property + '_id'))
+            self.__update(type.lazy_load(self))
         print("_lazy_loaded:", self)
         return self
 
@@ -243,8 +249,9 @@ class Model(object):
 
         mapping = {}
         for name, type in cls._mapping.items():
-            if name != 'id':
-                mapping[name] = {"type": type.get_es_type()}
+            es_type = type.get_es_type()
+            if name != 'id' and es_type:
+                mapping[name] = {"type": es_type}
 
         print("mapping", mapping)
         return mapping
