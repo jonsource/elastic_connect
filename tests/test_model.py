@@ -27,6 +27,38 @@ def fix_model_one_save():
     assert not es.indices.exists(index=OneSave.get_index())
 
 
+def test_create(fix_model_one_save):
+    cls = fix_model_one_save
+
+    instance = cls.create(value='value1')  # type: Model
+
+    assert instance.id is not None
+
+    cls.refresh()
+
+    es = elastic_connect.get_es()
+    es_result = es.get(index=cls.get_index(), id=instance.id)
+
+    assert es_result['found'] == True
+    assert es_result['_source'] == {'value': 'value1'}
+
+
+def test_get(fix_model_one_save):
+    cls = fix_model_one_save
+
+    es = elastic_connect.get_es()
+    es_result = es.index(index=cls.get_index(), doc_type=cls._meta['_doc_type'], body={'value': 'pokus'}, refresh=True)
+
+    assert es_result['created'] == True
+
+    print(es_result)
+
+    instance = cls.get(es_result['_id'])
+
+    assert instance.id == es_result['_id']
+    assert instance.value == 'pokus'
+
+
 def test_save(fix_model_one_save):
     cls = fix_model_one_save
 
@@ -36,12 +68,10 @@ def test_save(fix_model_one_save):
     instance2 = cls.get(instance.id)
     assert instance2.id == instance.id
     assert instance2.value == 'value1'
-    print("instance1", instance)
-    print("instance2", instance2)
 
     instance.value = 'value2'
     instance.save()
 
-    instance2 = cls.get(instance.id)
-    assert instance2.id == instance.id
-    assert instance2.value == 'value2'
+    instance3 = cls.get(instance.id)
+    assert instance3.id == instance.id
+    assert instance3.value == 'value2'

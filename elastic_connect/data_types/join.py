@@ -9,8 +9,6 @@ class Join(BaseDataType):
 
         super().__init__(name=name)
 
-        self.id_value = None
-
         self.source = None
         self.target = None
         self._source_module, self._source = self.split_class_def(source)
@@ -53,14 +51,6 @@ class Join(BaseDataType):
             self.source = self.class_for_name(self._source_module, self._source)
         return self.source
 
-    def from_es(self, es_hit: dict):
-        return es_hit.get(self.name + '_id', None)
-
-    def to_dict(self, value: any):
-        to_es = self.to_es(value)
-        to_es.update({self.name: value})
-        return to_es
-
     def _get_es_type(self):
         return 'keyword'
 
@@ -79,19 +69,31 @@ class SingleJoin(Join):
         try:
             value = model.__getattribute__(self.name).id
         except AttributeError:
-            value = model.__getattribute__(self.name + '_id')
+            value = model.__getattribute__(self.name)
         loaded = self.get_default_value()
         if value:
             loaded = self.get_target().get(value)
-        return {self.name: loaded}
+        return loaded
 
-    def to_es(self, value: (str, 'base_model.Model')):
-        try:
-            id = value.id
-        except (AttributeError, TypeError):
-            id = value
-
-        return {self.name + '_id': id}
+    def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False):
+        print("serialize single", self.name, depth)
+        if depth < 1:
+            try:
+                if value.id:
+                    #print("value.id")
+                    ret = value.id
+                else:
+                    #print("value")
+                    if to_str:
+                        ret = object.__repr__(value)
+                    else:
+                        ret = value
+            except (AttributeError, TypeError):
+                ret = value
+        else:
+            #print("recourse")
+            ret = value.serialize(depth=depth-1)
+        return ret
 
     def on_update(self, value: 'base_model.Model', model: 'base_model.Model'):
         if self.target_property and self._is_value_model(value):
@@ -134,12 +136,13 @@ class MultiJoin(Join):
         print(ret)
         return ret
 
-    def to_es(self, value: any):
+    def serialize(self, value: (str, 'base_model.Model'), depth: int):
+        print("serialize multi")
         try:
             ids = [model.id for model in value]
         except (AttributeError, TypeError):
             ids = value
-        return {self.name + '_id': ids}
+        return ids
 
     def get_default_value(self):
         return []

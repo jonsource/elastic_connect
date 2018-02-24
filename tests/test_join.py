@@ -169,6 +169,9 @@ def fix_user_key():
 
 def test_single_join(fix_parent_child):
     child = Child.create(value='child_val')  # type: Child
+
+    print("--------")
+
     parent = Parent.create(value='parent_val', child=child)  # type: Parent
 
     Parent.refresh()

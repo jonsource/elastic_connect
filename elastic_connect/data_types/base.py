@@ -11,7 +11,7 @@ class BaseDataType(ABC):
     def from_python(self, value):
         return value
 
-    def serialize(self, value):
+    def serialize(self, value, depth, to_str):
         return value
 
     def deserialize(self, value):
@@ -20,14 +20,11 @@ class BaseDataType(ABC):
     def from_es(self, es_hit):
         return self.deserialize(es_hit.get(self.name, None))
 
-    def to_dict(self, value):
-        return {self.name: value}
-
     def to_es(self, value):
-        return self.to_dict(self.serialize(value))
+        return self.serialize(value)
 
     def lazy_load(self, value):
-        return {self.name: value}
+        return value
 
     def _has_es_type(self):
         if self.name == 'id':
@@ -40,14 +37,14 @@ class BaseDataType(ABC):
     def get_es_type(self):
         return self._has_es_type() and self._get_es_type()
 
-    def on_update(self, value, model):
-        return self.to_dict(value)
-
     def get_default_value(self):
         return None
 
     def on_save(self, model):
         return None
+
+    def on_update(self, value, model):
+        return value
 
     def __repr__(self):
         return object.__repr__(self) + str(self.__dict__)

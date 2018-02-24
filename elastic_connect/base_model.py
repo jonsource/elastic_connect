@@ -37,9 +37,9 @@ class Model(object):
         """
 
         for property, type in self._mapping.items():
-            self.__update(type.to_dict(type.get_default_value()))
+            self.__update(property, type.get_default_value())
         for property, type in self._mapping.items():
-            self.__update(type.on_update(type.from_python(kw.get(property, type.get_default_value())), self))
+            self.__update(property, type.on_update(type.from_python(kw.get(property, type.get_default_value())), self))
 
     @classmethod
     def get_index(cls):
@@ -89,7 +89,7 @@ class Model(object):
 
         kwargs = {}
         for property, type in cls._mapping.items():
-            kwargs.update(type.to_dict(type.from_es(hit['_source'])))
+            kwargs.update({property: type.from_es(hit['_source'])})
             kwargs['id'] = hit['_id']
         model = cls(**kwargs)
         return model
@@ -118,7 +118,7 @@ class Model(object):
             response = cls.get_es_connection().create(id=model.id, body=model.to_es(exclude=['id']))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
-            response = cls.get_es_connection().index(body=model.to_es(exclude=['id']))
+            response = cls.get_es_connection().index(body=model.serialize(exclude=['id']))
         model.id = response['_id']
         print("model.id", model.id)
         model.post_save()
@@ -128,9 +128,9 @@ class Model(object):
         """Save a model that has an id, index a model without an id into Elasticsearch"""
 
         if self.id:
-            self.get_es_connection().update(id=self.id, body={'doc': self.to_es(exclude=['id'])})
+            self.get_es_connection().update(id=self.id, body={'doc': self.serialize(exclude=['id'])})
         else:
-            response = self.get_es_connection().index(body=self.to_es(exclude=['id']))
+            response = self.get_es_connection().index(body=self.serialize(exclude=['id']))
             self.id = response['_id']
             print("model.id from save", self.id)
         return self.post_save()
@@ -154,10 +154,8 @@ class Model(object):
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
         for property, type in self._mapping.items():
-            if property + '_id' not in self.__slots__:
-                continue
-            print("pre lazy", property, self.__getattribute__(property + '_id'))
-            self.__update(type.lazy_load(self))
+            print("pre lazy", property, self.__getattribute__(property))
+            self.__update(property, type.lazy_load(self))
         print("_lazy_loaded:", self)
         return self
 
@@ -188,37 +186,48 @@ class Model(object):
         })
         return ret
 
-    def to_es(self, exclude=["password"]):
+    def serialize(self, exclude=["password"], depth=0, to_str=False):
         """Serilaizes the model for storing to Elasticsearch.
 
         Joins are transformed from join: model format to join_id: id format.
         Datetime attributes are converted to iso format.
         """
 
+        print("serialize", self.__class__.__name__, depth)
         ret = {}
         for property, type in self._mapping.items():
+            print("property", property, type)
             if property not in exclude:
-                ret.update(type.to_es(self.__getattribute__(property)))
+                ret.update({property: type.serialize(self.__getattribute__(property), depth=depth, to_str=to_str)})
+        #print("serialize return:", ret)
         return ret
 
-    def to_dict(self, exclude=["password"]):
-        """Serilaizes the model for storing to Elasticsearch.
-
-        Joins are transformed from join: model format to join_id: id format.
-        Datetime attributes are converted to iso format.
-        """
-
-        ret = {}
-        for property, type in self._mapping.items():
-            if property not in exclude:
-                ret.update(type.to_dict(self.__getattribute__(property)))
-        return ret
+    # def to_dict(self, exclude=["password"]):
+    #     """Serilaizes the model for storing to Elasticsearch.
+    #
+    #     Joins are transformed from join: model format to join_id: id format.
+    #     Datetime attributes are converted to iso format.
+    #     """
+    #
+    #     ret = {}
+    #     for property, type in self._mapping.items():
+    #         if property not in exclude:
+    #             print("property", property)
+    #             ret.update({property: type.to_dict(self.__getattribute__(property))})
+    #     return ret
 
     def __repr__(self):
-        return object.__repr__(self) + str(self.to_dict())
+        print("repr")
+        # if self.id:
+        #     return str(self.serialize(depth=0))
+        # return object.__repr__(self)
+        #return str(self.serialize())
+        if self.id:
+            return object.__repr__(self) + str(self)
+        return object.__repr__(self)
 
     def __str__(self):
-        return str(self.to_es())
+        return str(self.serialize(depth=0, to_str=True))
 
     @classmethod
     def refresh(cls):
@@ -226,18 +235,17 @@ class Model(object):
 
         cls._es_namespace.get_es().indices.refresh(index=cls.get_index())
 
-    def __setattr__(self, name, value):
-        #print("setting %s.%s = %s" % (self.__class__.__name__, name, value))
-        if name in self._mapping:
-            self.__update(self._mapping[name].on_update(value, self))
-            # print("after", repr(self))
-            return
-        return super().__setattr__(name, value)
+    # def __setattr__(self, name, value):
+    #     #print("setting %s.%s = %s" % (self.__class__.__name__, name, value))
+    #     if name in self._mapping:
+    #
+    #         # print("after", repr(self))
+    #         return
+    #     return super().__setattr__(name, value)
 
-    def __update(self, value):
+    def __update(self, name, value):
         # print("__update", value)
-        for key, val in value.items():
-            super().__setattr__(key, val)
+        super().__setattr__(name, self._mapping[name].on_update(value, self))
 
 
     @classmethod
