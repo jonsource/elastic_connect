@@ -11,7 +11,7 @@ class BaseDataType(ABC):
     def from_python(self, value):
         return value
 
-    def serialize(self, value, depth, to_str):
+    def serialize(self, value, depth, to_str, flat):
         return value
 
     def deserialize(self, value):
@@ -23,8 +23,8 @@ class BaseDataType(ABC):
     def to_es(self, value):
         return self.serialize(value)
 
-    def lazy_load(self, value):
-        return value
+    def lazy_load(self, model):
+        return model.__getattribute__(self.name)
 
     def _has_es_type(self):
         if self.name == 'id':
@@ -45,6 +45,9 @@ class BaseDataType(ABC):
 
     def on_update(self, value, model):
         return value
+
+    def include_in_flat(self):
+        return True
 
     def __repr__(self):
         return object.__repr__(self) + str(self.__dict__)
@@ -68,5 +71,5 @@ class Date(BaseDataType):
     def deserialize(self, value):
         return parser.parse(value)
 
-    def serialize(self, value):
+    def serialize(self, value, depth, to_str):
         return value.isoformat()

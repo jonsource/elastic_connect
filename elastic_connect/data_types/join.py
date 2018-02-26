@@ -57,6 +57,9 @@ class Join(BaseDataType):
     def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
         return None
 
+    def include_in_flat(self):
+        return False
+
     def _is_value_model(self, value):
         if value is None or isinstance(value, str):
             return False
@@ -65,6 +68,7 @@ class Join(BaseDataType):
 
 class SingleJoin(Join):
     """1:1 model join."""
+
     def lazy_load(self, model):
         try:
             value = model.__getattribute__(self.name).id
@@ -75,8 +79,8 @@ class SingleJoin(Join):
             loaded = self.get_target().get(value)
         return loaded
 
-    def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False):
-        print("serialize single", self.name, depth)
+    def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False, flat: bool = True):
+        #print("serialize single", self.name, depth)
         if depth < 1:
             try:
                 if value.id:
@@ -87,12 +91,15 @@ class SingleJoin(Join):
                     if to_str:
                         ret = object.__repr__(value)
                     else:
+                        if flat:
+                            return None
                         ret = value
             except (AttributeError, TypeError):
                 ret = value
         else:
             #print("recourse")
             ret = value.serialize(depth=depth-1)
+        print("serialize single", ret)
         return ret
 
     def on_update(self, value: 'base_model.Model', model: 'base_model.Model'):
@@ -103,12 +110,14 @@ class SingleJoin(Join):
         return super().on_update(value, model)
 
     def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
-        print("single::insert_reference %s.%s = %s" % (model, self.name, value))
+        print("single::insert_reference", self.name, value.id)
         model.__setattr__(self.name, value)
 
     def on_save(self, model):
         value = model.__getattribute__(self.name)
+        print("single::on_save", self.name, model.id, value and value.id)
         if value and value.id is None:
+            print("single::on_save, saving")
             value.save()
             return value
         return None
@@ -130,26 +139,20 @@ class MultiJoin(Join):
         try:
             value = [v.id for v in model.__getattribute__(self.name)]
         except AttributeError:
-            value = model.__getattribute__(self.name + '_id')
-        print("lazy", self.name, value)
-        ret = {self.name: [self.get_target().get(val) for val in value]}
-        print(ret)
-        return ret
+            value = model.__getattribute__(self.name)
+        return [self.get_target().get(val) for val in value]
 
-    def serialize(self, value: (str, 'base_model.Model'), depth: int):
-        print("serialize multi")
-        try:
-            ids = [model.id for model in value]
-        except (AttributeError, TypeError):
-            ids = value
-        return ids
+    def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False, flat: bool = True):
+        ret = [SingleJoin.serialize(self, value=model, depth=depth, to_str=to_str, flat=flat) for model in value]
+        print("serialize multi", ret)
+        return ret
 
     def get_default_value(self):
         return []
 
     def on_update(self, value: 'list[base_model.Model]', model: 'base_model.Model'):
         if self.target_property:
-            print("multi::on_update %s.%s = %s -> %s" % (model, self.name, value, self.name))
+            # print("multi::on_update %s.%s = %s -> %s" % (model, self.name, value, self.name))
             for val in value:
                 if not self._is_value_model(val):
                     continue
@@ -159,11 +162,13 @@ class MultiJoin(Join):
 
     def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
         print("multi::insert_reference %s.%s = %s" % (model, self.name, value))
+        #print("multi::insert_reference", self.name, value.id, model)
         referred_attribute = model.__getattribute__(self.name)
-        if value.id not in [r.id for r in referred_attribute]:
+        if value.id not in [r.id for r in referred_attribute if self._is_value_model(r)]:
             referred_attribute.append(value)
 
     def on_save(self, model: 'base_model.Model'):
+        print("multi::on_save", self.name, model.id)
         ret = []
         values = model.__getattribute__(self.name)
         for value in [v for v in values if v and v.id is None]:
@@ -171,6 +176,11 @@ class MultiJoin(Join):
         if len(ret):
             return ret
         return None
+
+    def deserialize(self, value):
+        if value is None:
+            return []
+        return value
 
 
 class LooseJoin(Join):

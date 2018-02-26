@@ -115,12 +115,16 @@ class Model(object):
         """
 
         if model.id:
+            # TODO: write test for this case
             response = cls.get_es_connection().create(id=model.id, body=model.to_es(exclude=['id']))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
-            response = cls.get_es_connection().index(body=model.serialize(exclude=['id']))
+            print("---serialize-in-_create--")
+            print(model.serialize(exclude=['id']))
+            print("------")
+            response = cls.get_es_connection().index(body=model.serialize(exclude=['id'], flat=True))
         model.id = response['_id']
-        print("model.id", model.id)
+        print("model.id from create", model.id)
         model.post_save()
         return model
 
@@ -130,7 +134,7 @@ class Model(object):
         if self.id:
             self.get_es_connection().update(id=self.id, body={'doc': self.serialize(exclude=['id'])})
         else:
-            response = self.get_es_connection().index(body=self.serialize(exclude=['id']))
+            response = self.get_es_connection().index(body=self.serialize(exclude=['id'], flat=True))
             self.id = response['_id']
             print("model.id from save", self.id)
         return self.post_save()
@@ -186,19 +190,20 @@ class Model(object):
         })
         return ret
 
-    def serialize(self, exclude=["password"], depth=0, to_str=False):
+    def serialize(self, exclude=["password"], depth=0, to_str=False, flat=False):
         """Serilaizes the model for storing to Elasticsearch.
 
         Joins are transformed from join: model format to join_id: id format.
         Datetime attributes are converted to iso format.
         """
 
-        print("serialize", self.__class__.__name__, depth)
+        #print("serialize", self.__class__.__name__, depth, flat)
         ret = {}
         for property, type in self._mapping.items():
-            print("property", property, type)
+            #print("property", property, type)
+            #if property not in exclude and (not flat or type.include_in_flat()):
             if property not in exclude:
-                ret.update({property: type.serialize(self.__getattribute__(property), depth=depth, to_str=to_str)})
+                ret.update({property: type.serialize(self.__getattribute__(property), depth=depth, to_str=to_str, flat=flat)})
         #print("serialize return:", ret)
         return ret
 
@@ -235,17 +240,15 @@ class Model(object):
 
         cls._es_namespace.get_es().indices.refresh(index=cls.get_index())
 
-    # def __setattr__(self, name, value):
-    #     #print("setting %s.%s = %s" % (self.__class__.__name__, name, value))
-    #     if name in self._mapping:
-    #
-    #         # print("after", repr(self))
-    #         return
-    #     return super().__setattr__(name, value)
+    def __setattr__(self, name, value):
+        if name in self._mapping:
+            return self.__update(name, value)
+        return super().__setattr__(name, value)
 
     def __update(self, name, value):
-        # print("__update", value)
+        #print("__update", value)
         super().__setattr__(name, self._mapping[name].on_update(value, self))
+        return self
 
 
     @classmethod

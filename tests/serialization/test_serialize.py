@@ -1,4 +1,4 @@
-from conftest import Simple, WithJoin, SelfJoin
+from conftest import Simple, WithJoin, SelfJoin, WithMultiJoin
 import re
 
 
@@ -75,3 +75,30 @@ def test_self_join_id_id_serialize():
     assert b_ser['join']['id'] == '2'
     assert b_ser['join']['value'] == 'a'
     assert b_ser['join']['join'] == '1'
+
+
+def test_with_multi_join_serialize_empty():
+    wj = WithMultiJoin(value="13")
+    assert wj.serialize() == {"id": None, "value": "13", "join": []}
+
+
+def test_with_multi_join_id_serialize_simple_id():
+    s1 = Simple(id="2", value="12")
+    s2 = Simple(id="3", value="22")
+    wmj = WithMultiJoin(id="1", value="13", join=[s1, s2])
+
+    assert wmj.serialize() == {"id": "1", "join": ['2', '3'], "value": "13"}
+    assert wmj.serialize(depth=1) == {"id": "1", "join": [{'id': '2', 'value': '12'}, {'id': '3', 'value': '22'}], "value": "13"}
+
+
+def test_with_multi_join_serialize():
+    s1 = Simple(value="12")
+    s2 = Simple(value="22")
+    wmj = WithMultiJoin(value="13", join=[s1, s2])
+    wmj_ser = wmj.serialize()
+
+    assert wmj_ser["id"] is None
+    assert wmj_ser["value"] == "13"
+    assert len(wmj_ser["join"]) == 2
+    assert isinstance(wmj_ser["join"][0], Simple)
+    assert isinstance(wmj_ser["join"][1], Simple)

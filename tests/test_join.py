@@ -5,7 +5,7 @@ import elastic_connect
 
 
 class Parent(Model):
-    __slots__ = ('id', 'value', 'child', 'child_id')
+    __slots__ = ('id', 'value', 'child')
 
     _meta = {
         '_doc_type': 'model_parent'
@@ -18,7 +18,7 @@ class Parent(Model):
 
 
 class Child(Model):
-    __slots__ = ('id', 'value', 'parent', 'parent_id')
+    __slots__ = ('id', 'value', 'parent')
 
     _meta = {
         '_doc_type': 'model_child'
@@ -56,7 +56,7 @@ class Many(Model):
     }
 
 class OneWithReference(Model):
-    __slots__ = ('id', 'value', 'many', 'many_id')
+    __slots__ = ('id', 'value', 'many')
 
     _meta = {
         '_doc_type': 'model_one_wr'
@@ -69,7 +69,7 @@ class OneWithReference(Model):
 
 
 class ManyWithReference(Model):
-    __slots__ = ('id', 'value', 'one', 'one_id')
+    __slots__ = ('id', 'value', 'one')
 
     _meta = {
         '_doc_type': 'model_many_wr'
@@ -169,21 +169,21 @@ def fix_user_key():
 
 def test_single_join(fix_parent_child):
     child = Child.create(value='child_val')  # type: Child
-
-    print("--------")
-
     parent = Parent.create(value='parent_val', child=child)  # type: Parent
+
+    print("--------------")
 
     Parent.refresh()
     Child.refresh()
 
     # don't make two way references by default
     assert child.parent is None
+    assert parent.child.id == child.id
 
     loaded = Parent.get(parent.id)
     loaded._lazy_load()
 
-    # test loading of joind model
+    # test loading of joined model
     assert loaded.child.id == child.id
 
     # resave and try loading again
@@ -202,7 +202,6 @@ def test_single_join_empty(fix_parent_child):
     loaded._lazy_load()
 
     # test loading of empty join
-    assert loaded.child_id is None
     assert loaded.child is None
 
 
@@ -235,7 +234,6 @@ def test_multi_join_empty(fix_one_many):
     loaded = One.get(one.id)
     loaded._lazy_load()
 
-    assert len(loaded.many_id) == 0
     assert len(loaded.many) == 0
 
 
@@ -246,12 +244,12 @@ def test_single_join_explicit_save(fix_parent_child):
     parent.child = child
     parent.save()
 
-    print("saved", parent.to_es())
+    print("saved", parent.serialize())
     Child.refresh()
     Parent.refresh()
 
     loaded = Parent.get(parent.id)  # type: Parent
-    print("loaded", loaded.to_es())
+    print("loaded", loaded.serialize())
     loaded._lazy_load()
     assert loaded.child.id == child.id
 
@@ -277,12 +275,12 @@ def test_single_join_implicit_save(fix_parent_child):
     child = Child(value='child_val')  # type: Child
     parent = Parent.create(value='parent_val', child=child)  # type: Parent
 
-    print("saved", parent.to_es())
+    print("saved", parent)
     Child.refresh()
     Parent.refresh()
 
     loaded = Parent.get(parent.id)  # type: Parent
-    print("loaded", loaded.to_es())
+    print("loaded", loaded)
     loaded._lazy_load()
     assert loaded.child.id == child.id
 
@@ -331,12 +329,11 @@ def test_multi_join_reference(fix_one_many_with_reference):
 
     loaded = OneWithReference.get(one.id)
     loaded._lazy_load()
+    assert len(loaded.many) == 2
     lm1 = loaded.many[0]
     lm2 = loaded.many[1]
-    print(lm1)
-    print(lm2)
-    assert lm1.one_id == loaded.id
-    assert lm2.one_id == loaded.id
+    assert lm1.one.id == loaded.id
+    assert lm2.one.id == loaded.id
 
 
 def test_multi_join_reference_implicit_save(fix_one_many_with_reference):
@@ -353,10 +350,11 @@ def test_multi_join_reference_implicit_save(fix_one_many_with_reference):
 
     loaded = OneWithReference.get(one.id)
     loaded._lazy_load()
+    assert len(loaded.many) == 2
     lm1 = loaded.many[0]
     lm2 = loaded.many[1]
-    assert lm1.one_id == loaded.id
-    assert lm2.one_id == loaded.id
+    assert lm1.one.id == loaded.id
+    assert lm2.one.id == loaded.id
 
 
 def test_single_join_reference(fix_one_many_with_reference):
@@ -411,9 +409,7 @@ def test_single_join_loose(fix_user_key):
 
     lu = User.get(u.id)  # type: User
     lu._lazy_load()
-    assert lu.key_id is None
     assert lu.key is None
-    assert len(lu.keys_id) == 0
     assert len(lu.keys) == 0
 
     lk = Key.get(k1.id)  # type: Key
@@ -437,18 +433,13 @@ def test_multi_join_reference_double_load(fix_one_many_with_reference):
     OneWithReference.refresh()
     ManyWithReference.refresh()
 
-    print("*-*--------------")
     loaded = OneWithReference.get(one.id)
-    print(loaded)
     loaded._lazy_load()
-    print(loaded.many)
-    print(loaded.many_id)
-    assert loaded.many[0].one_id == one.id
-    assert loaded.many[1].one_id == one.id
+    assert len(loaded.many) == 2
+    assert loaded.many[0].one.id == one.id
+    assert loaded.many[1].one.id == one.id
 
     loaded._lazy_load()
-    print(loaded.many)
-    print(loaded.many_id)
-    print(loaded.many_id)
-    assert loaded.many[0].one_id == one.id
-    assert loaded.many[1].one_id == one.id
+    assert len(loaded.many) == 2
+    assert loaded.many[0].one.id == one.id
+    assert loaded.many[1].one.id == one.id
