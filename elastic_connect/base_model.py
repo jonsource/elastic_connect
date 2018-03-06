@@ -115,7 +115,6 @@ class Model(object):
         """
 
         if model.id:
-            # TODO: write test for this case
             response = cls.get_es_connection().create(id=model.id, body=model.serialize(exclude=['id']))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
@@ -207,26 +206,7 @@ class Model(object):
         #print("serialize return:", ret)
         return ret
 
-    # def to_dict(self, exclude=["password"]):
-    #     """Serilaizes the model for storing to Elasticsearch.
-    #
-    #     Joins are transformed from join: model format to join_id: id format.
-    #     Datetime attributes are converted to iso format.
-    #     """
-    #
-    #     ret = {}
-    #     for property, type in self._mapping.items():
-    #         if property not in exclude:
-    #             print("property", property)
-    #             ret.update({property: type.to_dict(self.__getattribute__(property))})
-    #     return ret
-
     def __repr__(self):
-        print("repr")
-        # if self.id:
-        #     return str(self.serialize(depth=0))
-        # return object.__repr__(self)
-        #return str(self.serialize())
         if self.id:
             return object.__repr__(self) + str(self)
         return object.__repr__(self)
