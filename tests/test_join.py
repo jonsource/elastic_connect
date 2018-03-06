@@ -119,6 +119,9 @@ def fix_parent_child():
 
     yield
 
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=Parent.get_index())
     assert not es.indices.exists(index=Child.get_index())
@@ -133,6 +136,9 @@ def fix_one_many():
 
     yield
 
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=One.get_index())
     assert not es.indices.exists(index=Many.get_index())
@@ -146,6 +152,9 @@ def fix_one_many_with_reference():
 
     yield
 
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneWithReference.get_index())
     assert not es.indices.exists(index=ManyWithReference.get_index())
@@ -162,6 +171,9 @@ def fix_user_key():
 
     yield
 
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=User.get_index())
     assert not es.indices.exists(index=Key.get_index())

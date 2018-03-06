@@ -67,6 +67,10 @@ def fix_model_one_save():
 
     yield OneSave
 
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
+
     namespace.delete_indices(indices=indices)
     assert not default_namespace.get_es().indices.exists(index=OneSave.get_index())
 

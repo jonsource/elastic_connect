@@ -116,7 +116,7 @@ class Model(object):
 
         if model.id:
             # TODO: write test for this case
-            response = cls.get_es_connection().create(id=model.id, body=model.to_es(exclude=['id']))
+            response = cls.get_es_connection().create(id=model.id, body=model.serialize(exclude=['id']))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
             print("---serialize-in-_create--")

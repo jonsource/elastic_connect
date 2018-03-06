@@ -13,6 +13,7 @@ class One(Model):
         'single': SingleJoin(name='single', source='test_connect.One', target='test_connect.Two')
     }
 
+
 class Two(Model):
     _meta = {
         '_doc_type': 'model_two'
@@ -22,7 +23,11 @@ class Two(Model):
         'loose': SingleJoinLoose(name='loose', source='test_connect.Two', target='test_connect.One')
     }
 
+@pytest.mark.skipif(pytest.config.getoption("--index-noclean"), reason="not cleaning indices")
 def test_delete_indices():
+    # if pytest.config.getoption("--index-noclean"):
+    #     print("Skipping test - not cleaning indices")
+    #     return
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[One])
     assert es.indices.exists(index=pytest.config.getoption("--es-prefix") + '_' + 'model_one')

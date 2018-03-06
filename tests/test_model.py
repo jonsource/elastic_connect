@@ -23,6 +23,10 @@ def fix_model_one_save():
 
     yield OneSave
 
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
+
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneSave.get_index())
 
@@ -75,3 +79,19 @@ def test_save(fix_model_one_save):
     instance3 = cls.get(instance.id)
     assert instance3.id == instance.id
     assert instance3.value == 'value2'
+
+
+def test_create_with_id(fix_model_one_save):
+    cls = fix_model_one_save
+
+    instance = cls.create(id='100', value='value1')  # type: Model
+
+    assert instance.id == '100'
+
+    cls.refresh()
+
+    es = elastic_connect.get_es()
+    es_result = es.get(index=cls.get_index(), id=instance.id)
+
+    assert es_result['found'] is True
+    assert es_result['_source'] == {'value': 'value1'}
