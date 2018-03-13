@@ -86,5 +86,5 @@ def delete_indices(indices):
 def connect(conf, index_prefix=''):
     _namespaces['_default'].es = None
     _namespaces['_default'].es_conf = conf
-    _namespaces['_default'].index_prefix = index_prefix
+    _namespaces['_default']._index_prefix = index_prefix
     return _namespaces['_default']
