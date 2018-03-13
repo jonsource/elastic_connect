@@ -95,7 +95,7 @@ class IdOneWithReference(Model):
     }
 
     def _compute_id(self):
-         return self.value
+        return self.value
 
 
 class IdManyWithReference(Model):
@@ -511,6 +511,10 @@ def test_multi_join_reference_implicit_save_computed_id(fix_id_one_many_with_ref
 
     one = IdOneWithReference.create(value='boss', many=[many1, many2])  # type: IdOneWithReference
 
+    # check computed id
+    assert one.id == one.value
+
+    # check id of joined model gets updated
     assert many1.id is not None
 
     IdOneWithReference.refresh()
