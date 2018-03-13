@@ -95,7 +95,7 @@ class Model(object):
         return model
 
     @classmethod
-    def create(cls, **kw) -> 'cls':
+    def create(cls, **kw) -> 'Model':
         """Create, save and return a model instance based on dictionary.
 
         Property id gets set by Elasticsearch or computed depending on cls._compute_id()
@@ -115,7 +115,7 @@ class Model(object):
         """
 
         if model.id:
-            response = cls.get_es_connection().create(id=model.id, body=model.serialize(exclude=['id']))
+            response = cls.get_es_connection().create(id=model.id, body=model.serialize(exclude=['id'], flat=True))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
             print("---serialize-in-_create--")

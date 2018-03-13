@@ -82,6 +82,34 @@ class ManyWithReference(Model):
     }
 
 
+class IdOneWithReference(Model):
+    __slots__ = ('id', 'value', 'many')
+
+    _meta = {
+        '_doc_type': 'model_one_wr'
+    }
+    _mapping = {
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'many': MultiJoin(name='many', source='test_join.IdOneWithReference', target='test_join.IdManyWithReference:one'),
+    }
+
+    def _compute_id(self):
+         return self.value
+
+
+class IdManyWithReference(Model):
+    __slots__ = ('id', 'value', 'one')
+
+    _meta = {
+        '_doc_type': 'model_many_wr'
+    }
+    _mapping = {
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'one': SingleJoin(name='one', source='test_join.IdManyWithReference', target='test_join.IdOneWithReference:many'),
+    }
+
 class User(Model):
     __slots__ = ('value', 'key', 'key_id', 'keys', 'keys_id')
 
@@ -159,6 +187,23 @@ def fix_one_many_with_reference():
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneWithReference.get_index())
     assert not es.indices.exists(index=ManyWithReference.get_index())
+
+
+@pytest.fixture(scope="module")
+def fix_id_one_many_with_reference():
+    es = elastic_connect.get_es()
+    indices = elastic_connect.create_mappings(model_classes=[IdOneWithReference, IdManyWithReference])
+    assert es.indices.exists(index=IdOneWithReference.get_index())
+    assert es.indices.exists(index=IdManyWithReference.get_index())
+
+    yield
+
+    if pytest.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
+    elastic_connect.delete_indices(indices=indices)
+    assert not es.indices.exists(index=IdOneWithReference.get_index())
+    assert not es.indices.exists(index=IdManyWithReference.get_index())
 
 
 @pytest.fixture(scope="module")
@@ -456,3 +501,23 @@ def test_multi_join_reference_double_load(fix_one_many_with_reference):
     assert len(loaded.many) == 2
     assert loaded.many[0].one.id == one.id
     assert loaded.many[1].one.id == one.id
+
+
+def test_multi_join_reference_implicit_save_computed_id(fix_id_one_many_with_reference):
+    many1 = IdManyWithReference(value='one')  # type: IdManyWithReference
+    many2 = IdManyWithReference(value='two')  # type: IdManyWithReference
+
+    assert many1.id is None
+
+    one = IdOneWithReference.create(value='boss', many=[many1, many2])  # type: IdOneWithReference
+
+    assert many1.id is not None
+
+    IdOneWithReference.refresh()
+    IdManyWithReference.refresh()
+
+    loaded = IdOneWithReference.get(one.id)
+    loaded._lazy_load()
+
+    assert len(loaded.many) == 2
+    assert loaded.many[0].id == many1.id
