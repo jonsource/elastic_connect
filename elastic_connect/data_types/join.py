@@ -198,14 +198,8 @@ class LooseJoin(Join):
 
 
 class SingleJoinLoose(SingleJoin, LooseJoin):
-    def to_dict(self, value: any):
-        to_es = super().to_es(value)
-        to_es.update({self.name: value})
-        return to_es
+    pass
 
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
-    def to_dict(self, value: any):
-        to_es = super().to_es(value)
-        to_es.update({self.name: value})
-        return to_es
+    pass

@@ -27,9 +27,6 @@ class Result(UserList):
         self.results = ret
         super(Result, self).__init__(self.results)
 
-    def to_dict(self):
-        return [result.to_dict() for result in self.results]
-
 
 class DocTypeConnection(object):
     """Connection for a specific model to Elasticsearch.

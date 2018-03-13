@@ -73,7 +73,7 @@ class ManyWithReference(Model):
     __slots__ = ('id', 'value', 'one')
 
     _meta = {
-        '_doc_type': 'model_many_wr'
+        '_doc_type': 'model_many_wrid'
     }
     _mapping = {
         'id': Keyword(name='id'),
@@ -86,7 +86,7 @@ class IdOneWithReference(Model):
     __slots__ = ('id', 'value', 'many')
 
     _meta = {
-        '_doc_type': 'model_one_wr'
+        '_doc_type': 'model_one_wrid'
     }
     _mapping = {
         'id': Keyword(name='id'),
