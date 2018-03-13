@@ -55,6 +55,7 @@ class Many(Model):
         'one': SingleJoin(name='one', source='test_join.Many', target='test_join.One'),
     }
 
+
 class OneWithReference(Model):
     __slots__ = ('id', 'value', 'many')
 

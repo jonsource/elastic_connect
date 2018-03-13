@@ -71,5 +71,5 @@ class Date(BaseDataType):
     def deserialize(self, value):
         return parser.parse(value)
 
-    def serialize(self, value, depth, to_str):
+    def serialize(self, value, depth, to_str, flat):
         return value.isoformat()
