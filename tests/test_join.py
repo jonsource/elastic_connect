@@ -415,6 +415,31 @@ def test_multi_join_reference_implicit_save(fix_one_many_with_reference):
     assert lm2.one.id == loaded.id
 
 
+def test_multi_join_reverse_reference_implicit_save(fix_one_many_with_reference):
+    one = OneWithReference.create(value='boss')  # type: OneWithReference
+
+    assert one.many == []
+
+    many1 = ManyWithReference.create(one=one, value='one')  # type: ManyWithReference
+    many2 = ManyWithReference.create(one=one, value='two')  # type: ManyWithReference
+
+    assert len(one.many) == 2
+
+    OneWithReference.refresh()
+    ManyWithReference.refresh()
+
+    loaded = OneWithReference.get(one.id)
+    loaded._lazy_load()
+    assert loaded.many == []
+
+    one.save()
+    OneWithReference.refresh()
+
+    loaded = OneWithReference.get(one.id)
+    loaded._lazy_load()
+    assert len(loaded.many) == 2
+
+
 def test_single_join_reference(fix_one_many_with_reference):
     one = OneWithReference.create(value='boss')  # type: OneWithReference
     many = ManyWithReference.create(value='slave')  # type: ManyWithReference
