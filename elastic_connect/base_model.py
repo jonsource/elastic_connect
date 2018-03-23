@@ -1,6 +1,9 @@
 import elastic_connect
 import elastic_connect.data_types as data_types
 import elastic_connect.data_types.base
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Model(object):
@@ -26,7 +29,6 @@ class Model(object):
         '_doc_type': 'model',
     }
 
-    print(elastic_connect._namespaces)
     _es_namespace = elastic_connect._namespaces['_default']
     _es_connection = None
 
@@ -48,7 +50,6 @@ class Model(object):
         For ES < 5 returns what is defined in the database settings.
         For ES >= 5 returns the '_doc_type' defined in cls._mapping
         """
-        # print("getindex", cls._es_namespace, cls._es_namespace.__dict__)
         return cls._es_namespace.index_prefix + cls._meta['_doc_type']
 
     def _compute_id(self):
@@ -65,13 +66,13 @@ class Model(object):
     @classmethod
     def get_es_connection(cls):
         if not cls._es_connection:
-            # print(cls.__name__ + " connecting to " + str(cls._es_namespace.__dict__))
+            logger.debug(cls.__name__ + " connecting to " + str(cls._es_namespace.__dict__))
             cls._es_connection = elastic_connect.DocTypeConnection(model=cls, es_namespace=cls._es_namespace,
                                                         index=cls.get_index(),
                                                         doc_type=cls._meta['_doc_type'])
-            # print("connection index name " + cls._es_connection.index_name)
-        # else:
-            # print(cls.__name__ + " connection already established:", cls._es_connection.__dict__)
+            logger.debug("connection index name " + cls._es_connection.index_name)
+        else:
+            logger.debug(cls.__name__ + " connection already established " + str(cls._es_connection.__dict__))
         return cls._es_connection
 
     @classmethod
@@ -118,12 +119,10 @@ class Model(object):
             response = cls.get_es_connection().create(id=model.id, body=model.serialize(exclude=['id'], flat=True))
         # TODO: probably needs to call cls.refresh() to properly prevent creation of duplicates
         else:
-            print("---serialize-in-_create--")
-            print(model.serialize(exclude=['id']))
-            print("------")
+            logger.debug("serialize in _create %s", model.serialize(exclude=['id']))
             response = cls.get_es_connection().index(body=model.serialize(exclude=['id'], flat=True))
         model.id = response['_id']
-        print("model.id from create", model.id)
+        logger.debug("model.id from _create %s", model.id)
         model.post_save()
         return model
 
@@ -135,15 +134,15 @@ class Model(object):
         else:
             response = self.get_es_connection().index(body=self.serialize(exclude=['id'], flat=True))
             self.id = response['_id']
-            print("model.id from save", self.id)
+            logger.debug("model.id from save %s", self.id)
         return self.post_save()
 
     def post_save(self):
-        print("post_save", self.__class__.__name__, self.id)
+        logger.debug("post_save %s %s", self.__class__.__name__, self.id)
         ret = []
         for property, type in self._mapping.items():
             ret.append(type.on_save(model=self))
-        print("post_save ret", self.id, ret)
+        logger.debug("post_save ret %s %s", self.id, ret)
         ret = [r for r in ret if r is not None]
         if len(ret):
             # resave, because some child models were updated
@@ -157,9 +156,9 @@ class Model(object):
     def _lazy_load(self):
         """Lazy loads model's joins - child / parent models."""
         for property, type in self._mapping.items():
-            print("pre lazy", property, self.__getattribute__(property))
+            logger.debug("pre _lazy_load %s %s", property, self.__getattribute__(property))
             self.__update(property, type.lazy_load(self))
-        print("_lazy_loaded:", self)
+        logger.debug("_lazy_load %s", self)
         return self
 
     @classmethod
@@ -196,14 +195,10 @@ class Model(object):
         Datetime attributes are converted to iso format.
         """
 
-        #print("serialize", self.__class__.__name__, depth, flat)
         ret = {}
         for property, type in self._mapping.items():
-            #print("property", property, type)
-            #if property not in exclude and (not flat or type.include_in_flat()):
             if property not in exclude:
                 ret.update({property: type.serialize(self.__getattribute__(property), depth=depth, to_str=to_str, flat=flat)})
-        #print("serialize return:", ret)
         return ret
 
     def __repr__(self):
@@ -226,7 +221,6 @@ class Model(object):
         return super().__setattr__(name, value)
 
     def __update(self, name, value):
-        #print("__update", value)
         super().__setattr__(name, self._mapping[name].on_update(value, self))
         return self
 
@@ -244,5 +238,5 @@ class Model(object):
             if name != 'id' and es_type:
                 mapping[name] = {"type": es_type}
 
-        print("mapping", mapping)
+        logger.debug("mapping %s", mapping)
         return mapping

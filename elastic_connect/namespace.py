@@ -2,9 +2,11 @@ from elasticsearch import Elasticsearch
 import elasticsearch.exceptions
 import time
 import requests
+import logging
 
 _global_prefix = ''
 
+logger = logging.getLogger(__name__)
 
 class NamespaceConnectionError(Exception):
     pass
@@ -120,9 +122,9 @@ class Namespace(object):
         def safe_create(index, body):
             try:
                 self.get_es().indices.create(index=index, body=body)
-                print("** Index %s created" % index)
+                logger.info("Index %s created", (index,))
             except elasticsearch.exceptions.RequestError as e:
-                print("** Index %s already exists!!" % index)
+                logger.info("Index %s already exists!", (index,))
                 if e.error != 'index_already_exists_exception':
                     raise e
 
@@ -162,7 +164,7 @@ class Namespace(object):
         if not rep and es.indices.exists(index=index):
             raise Exception("Timeout. Index %s still exists after %s seconds." % (index, timeout))
 
-        print("** Index %s deleted" % index)
+        logger.info("Index %s deleted", (index))
 
     def delete_indices(self, indices):
         # TODO: delete the indices in parallel

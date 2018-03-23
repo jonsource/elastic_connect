@@ -1,5 +1,8 @@
 import pytest
 import elastic_connect.namespace
+import logging
+
+logger = logging.getLogger(__name__)
 
 def pytest_addoption(parser):
     parser.addoption("--index-noclean", action="store_true",
@@ -19,7 +22,7 @@ def pytest_runtest_setup(item):
 @pytest.fixture(scope="session", autouse=True)
 def prefix_indices(request):
     # set the prefix for all indices, just to be safe
-    print("Prefixing all indices with: '" + pytest.config.getoption("--es-prefix") + '_' + "'")
+    logger.warning("Prefixing all indices with: '%s'", (pytest.config.getoption("--es-prefix") + '_'))
     elastic_connect.namespace._global_prefix = pytest.config.getoption("--es-prefix") + '_'
 
 @pytest.fixture(scope="session", autouse=True)
@@ -28,12 +31,10 @@ def fix_es():
     conf = {'host': pytest.config.getoption("--es-host"),
             'port': pytest.config.getoption("--es-port"),
             }
-    print(elastic_connect._namespaces['_default'].es_conf)
     elastic_connect._namespaces['_default'].es_conf = [conf]
-    print(elastic_connect._namespaces['_default'].es_conf)
     for namespace in elastic_connect._namespaces.values():
         namespace.wait_for_ready()
-        print(namespace.name + " ready!")
+        logger.info(namespace.name + " ready!")
 
     yield
 
@@ -41,18 +42,18 @@ def fix_es():
 def fix_index(model_classes):
     indices = elastic_connect.create_mappings(model_classes)
 
-    print("** created indices:", indices)
+    logger.info("created indices: %s", indices)
 
     yield
 
     if pytest.config.getoption("--index-noclean"):
-        print("** not cleaning")
+        logger.warning("not cleaning indices")
         return
 
     for index in indices:
         elastic_connect.delete_index(index)
 
-    print("\npost\n", elastic_connect.get_es().cat.indices() or "No indices")
+    logger.info("teardown %s", (elastic_connect.get_es().cat.indices() or "No indices",))
 
 
 @pytest.fixture(scope="module")

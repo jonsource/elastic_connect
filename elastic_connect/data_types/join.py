@@ -1,6 +1,8 @@
 from .base import BaseDataType
 import importlib
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Join(BaseDataType):
     """Abstract parent of model joins - dependent child / parent models."""
@@ -80,14 +82,11 @@ class SingleJoin(Join):
         return loaded
 
     def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False, flat: bool = True):
-        #print("serialize single", self.name, depth)
         if depth < 1:
             try:
                 if value.id:
-                    #print("value.id")
                     ret = value.id
                 else:
-                    #print("value")
                     if to_str:
                         ret = object.__repr__(value)
                     else:
@@ -97,27 +96,26 @@ class SingleJoin(Join):
             except (AttributeError, TypeError):
                 ret = value
         else:
-            #print("recourse")
             ret = value.serialize(depth=depth-1)
-        print("serialize single", ret)
+        logger.debug("serialize single %s", ret)
         return ret
 
     def on_update(self, value: 'base_model.Model', model: 'base_model.Model'):
         if self.target_property and self._is_value_model(value):
-            print("single::on_update %s.%s = %s -> %s" % (model, self.name, value, self.name))
+            logger.debug("SingleJoin::on_update %s.%s = %s -> %s", model, self.name, value, self.name)
             target_type = value._mapping[self.target_property]
             target_type.insert_reference(model, value)
         return super().on_update(value, model)
 
     def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
-        print("single::insert_reference", self.name, value.id)
+        logger.debug("SingleJoin::insert_reference %s %s", self.name, value.id)
         model.__setattr__(self.name, value)
 
     def on_save(self, model):
         value = model.__getattribute__(self.name)
-        print("single::on_save", self.name, model.id, value and value.id)
+        logger.debug("SingleJoin::on_save %s %s %s", self.name, model.id, value and value.id)
         if value and value.id is None:
-            print("single::on_save, saving")
+            logger.debug("SingleJoin::on_save - saving")
             value.save()
             return value
         return None
@@ -144,7 +142,7 @@ class MultiJoin(Join):
 
     def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False, flat: bool = True):
         ret = [SingleJoin.serialize(self, value=model, depth=depth, to_str=to_str, flat=flat) for model in value]
-        print("serialize multi", ret)
+        logger.debug("MultiJoin::serialize %s", ret)
         return ret
 
     def get_default_value(self):
@@ -152,7 +150,7 @@ class MultiJoin(Join):
 
     def on_update(self, value: 'list[base_model.Model]', model: 'base_model.Model'):
         if self.target_property:
-            # print("multi::on_update %s.%s = %s -> %s" % (model, self.name, value, self.name))
+            logger.debug("MultiJoin::on_update %s.%s = %s -> %s", model, self.name, value, self.name)
             for val in value:
                 if not self._is_value_model(val):
                     continue
@@ -161,14 +159,13 @@ class MultiJoin(Join):
         return super().on_update(value, model)
 
     def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
-        print("multi::insert_reference %s.%s = %s" % (model, self.name, value))
-        #print("multi::insert_reference", self.name, value.id, model)
+        logger.debug("MultiJoin::insert_reference %s.%s = %s", model, self.name, value)
         referred_attribute = model.__getattribute__(self.name)
         if value.id not in [r.id for r in referred_attribute if self._is_value_model(r)]:
             referred_attribute.append(value)
 
     def on_save(self, model: 'base_model.Model'):
-        print("multi::on_save", self.name, model.id)
+        logger.debug("MultiJoin::on_save %s %s", self.name, model.id)
         ret = []
         values = model.__getattribute__(self.name)
         for value in [v for v in values if v and v.id is None]:
