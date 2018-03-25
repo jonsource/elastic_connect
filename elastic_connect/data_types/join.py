@@ -113,8 +113,8 @@ class SingleJoin(Join):
 
     def on_save(self, model):
         value = model.__getattribute__(self.name)
-        logger.debug("SingleJoin::on_save %s %s %s", self.name, model.id, value and value.id)
-        if value and value.id is None:
+        logger.debug("SingleJoin::on_save %s %s %s", self.name, model.id, value and (hasattr(value, 'id') and value.id))
+        if value and hasattr(value, 'id') and value.id is None:
             logger.debug("SingleJoin::on_save - saving")
             value.save()
             return value
@@ -168,7 +168,7 @@ class MultiJoin(Join):
         logger.debug("MultiJoin::on_save %s %s", self.name, model.id)
         ret = []
         values = model.__getattribute__(self.name)
-        for value in [v for v in values if v and v.id is None]:
+        for value in [v for v in values if v and hasattr(v, 'id') and v.id is None]:
             ret.append(value.save())
         if len(ret):
             return ret

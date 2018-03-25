@@ -550,3 +550,52 @@ def test_multi_join_reference_implicit_save_computed_id(fix_id_one_many_with_ref
 
     assert len(loaded.many) == 2
     assert loaded.many[0].id == many1.id
+
+
+def test_single_join_unloaded_resave(fix_id_one_many_with_reference):
+    one = OneWithReference(value='boss')  # type: OneWithReference
+    many = ManyWithReference.create(value='slave', one=one)  # type: ManyWithReference
+
+    OneWithReference.refresh()
+    ManyWithReference.refresh()
+
+    loaded = ManyWithReference.get(many.id)
+    assert loaded.value == 'slave'
+    with pytest.raises(AttributeError):
+        loaded.one[0].id == one.id
+    assert loaded.one == one.id
+
+    loaded.value = 'slave2'
+    loaded.save()
+
+    loaded = ManyWithReference.get(many.id)
+    loaded._lazy_load()
+    assert loaded.value == 'slave2'
+    assert loaded.one.id == one.id
+
+
+def test_multi_join_unloaded_resave(fix_id_one_many_with_reference):
+    many1 = ManyWithReference(value='one')  # type: ManyWithReference
+    many2 = ManyWithReference(value='two')  # type: ManyWithReference
+
+    one = OneWithReference.create(value='boss', many=[many1, many2])  # type: OneWithReference
+
+    OneWithReference.refresh()
+    ManyWithReference.refresh()
+
+    loaded = OneWithReference.get(one.id)
+    assert loaded.value == 'boss'
+    assert len(loaded.many) == 2
+    with pytest.raises(AttributeError):
+        loaded.many[0].id == many1.id
+    assert loaded.many[0] == many1.id
+
+    loaded.value = "boss2"
+    loaded.save()
+
+    loaded = OneWithReference.get(one.id)
+    loaded._lazy_load()
+    assert loaded.value == 'boss2'
+    assert len(loaded.many) == 2
+    assert loaded.many[0].id == many1.id
+    assert loaded.many[1].id == many2.id
