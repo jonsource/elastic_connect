@@ -102,7 +102,7 @@ class SingleJoin(Join):
 
     def on_update(self, value: 'base_model.Model', model: 'base_model.Model'):
         if self.target_property and self._is_value_model(value):
-            logger.debug("SingleJoin::on_update %s.%s = %s -> %s", model, self.name, value, self.name)
+            logger.debug("SingleJoin::on_update %s.%s = %s -> %s", model.__class__.__name__, self.name, value, self.name)
             target_type = value._mapping[self.target_property]
             target_type.insert_reference(model, value)
         return super().on_update(value, model)
@@ -150,7 +150,7 @@ class MultiJoin(Join):
 
     def on_update(self, value: 'list[base_model.Model]', model: 'base_model.Model'):
         if self.target_property:
-            logger.debug("MultiJoin::on_update %s.%s = %s -> %s", model, self.name, value, self.name)
+            logger.debug("MultiJoin::on_update %s.%s = %s -> %s", model.__class__.__name__, self.name, value, self.name)
             for val in value:
                 if not self._is_value_model(val):
                     continue
