@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def pytest_addoption(parser):
     parser.addoption("--index-noclean", action="store_true",
                      help="Don't clear the index after each test. Debugging only, may break some tests.")
@@ -14,7 +15,9 @@ def pytest_addoption(parser):
 
 
 def pytest_runtest_setup(item):
-    """Skip tests if they are marked as namespace and --namespace is not given"""
+    """
+    Skip tests if they are marked as namespace and --namespace is not given
+    """
     if getattr(item.obj, 'namespace', None) and not pytest.config.getvalue('--namespace'):
         pytest.skip('Not running namespace tests')
 

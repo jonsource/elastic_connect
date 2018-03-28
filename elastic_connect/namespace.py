@@ -115,6 +115,7 @@ class Namespace(object):
         """
         Creates index mapping in Elasticsearch for each model passed in.
         Doesn't update existing mappings.
+
         :param model_classes: a list of classes for which indices are created
         :return: returns the names of indices which were actually created
         """
