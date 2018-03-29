@@ -4,3 +4,6 @@
 *.egg*
 __pycache__
 .idea
+docs/*
+!docs/*.rst
+!docs/*.py

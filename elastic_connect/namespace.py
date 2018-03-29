@@ -5,6 +5,9 @@ import requests
 import logging
 
 _global_prefix = ''
+"""
+Global index prefix. Used for example to distinguish between index names used in production and in tests.
+"""
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,28 @@ class NamespaceAlreadyExistsError(Exception):
 
 
 class Namespace(object):
+    """
+    Object describing a namespace of an elasticsearch cluster or a connection to a different elasticsearch cluster.
+    Each namespace may have a different es_conf, thus connecting to a different elasticsearch cluster and/or a different
+    index_prefix thus using a different set of indices on the same cluster.
+
+    For example you may use two different namespaces to run two instances of the same application against a single
+    elasticsearch cluster. But due to using different index_prefixes on the ``_default`` namespace, each application
+    will preserve it's own data, i.e. one, with ``index_prefix="our"`` using indices ``our_users`` and ``our_data``,
+    the other with ``index_prefix="their"`` using indices ``their_users`` and ``their_data``.
+
+    It is also possible to use multiple namespaces in a single application.
+    """
+
     def __init__(self, name, es_conf, index_prefix=None):
+        """
+        :param name: name of the namespace, must be unique
+        :param es_conf: the configuration of the namespace i.e. at least {'host':..., 'port':...}. It is internally
+            passed to the underlaying elasticsearch.Elasticsearch class.
+        :param index_prefix: prefix of the namespace, it should probably be unique on the same cluster for sanity
+            reasons, but no check is enforced
+        """
+
         self.name = name
         self.es_conf = es_conf
         if index_prefix is None:
@@ -27,12 +51,13 @@ class Namespace(object):
 
     def register_model_class(self, model_class):
         """
-        Registers a model class in this namespace. By default all model classes are registered in the _default
+        Registers a model class in this namespace. By default all model classes are registered in the ``_default``
         namespace. By registering a model in a namespace it is possible to reuse it to connect to a different
-        Elasticsearch instance.
+        Elasticsearch cluster.
+
         :param model_class: The model class to be registered
         :return: Returns a new model class with name prefixed with Namespace.name and properly set _es_namespace
-        reference.
+            reference.
         """
 
         if self.name == '_default':
@@ -68,11 +93,13 @@ class Namespace(object):
     def wait_for_http_connection(self, initial_wait=10.0, step=0.1, timeout=30.0, https=False):
         """
         Waits for http(s) connection to Elasticsearch to be ready
+
         :param initial_wait: initially wait in seconds
         :param step: try each step seconds after initial wait
         :param timeout: raise NamespaceConnectionError after timeout seconds of trying. This includes the inital wait.
         :param https: whether to use http or https protocol
-        :return:
+        :return: True
+        :raises: NamespaceConnectionError on connection timeout
         """
         time.sleep(initial_wait)
         t = initial_wait
@@ -109,12 +136,18 @@ class Namespace(object):
 
     @property
     def index_prefix(self):
+        """
+        @property
+
+        Returns the calculated index prefix, taking into account any global prefixes as well.
+        """
         return _global_prefix + self._index_prefix
 
     def create_mappings(self, model_classes):
         """
         Creates index mapping in Elasticsearch for each model passed in.
         Doesn't update existing mappings.
+
         :param model_classes: a list of classes for which indices are created
         :return: returns the names of indices which were actually created
         """
@@ -144,9 +177,9 @@ class Namespace(object):
         """
         Deletes an index from Elasticsearch and blocks until it is deleted.
 
-        :param index: index to be deleted
-        :param timeout: default 2, if the index is not deleted after the number of seconds, Exception is riased.
-        If timeout = 0 doesn't block and returns immediately
+        :param index: name of index to be deleted
+        :param timeout: if the index is not deleted after the number of seconds, Exception is raised.
+            If timeout = 0 doesn't block and returns immediately
         :return: none
         """
 
@@ -167,15 +200,32 @@ class Namespace(object):
         logger.info("Index %s deleted", (index))
 
     def delete_indices(self, indices):
+        """
+        Deletes multiple indices, blocks until they are deleted.
+
+        :param indices: names of indices to be deleted
+        :return: None
+        """
+
         # TODO: delete the indices in parallel
         for index in indices:
             self.delete_index(index)
 
 
 _namespaces = {'_default': Namespace(name='_default', es_conf=None, index_prefix='')}
-
+"""
+A singleton dict containing all registered namespaces indexed by their names.
+"""
 
 def register_namespace(namespace: Namespace):
+    """
+    Register a new namespace. Changing a Namespace's parameters after it was registered may do crazy things,
+    don't do it.
+
+    :param namespace: Namespace instance to be registered
+    :return: None
+    :raises: NamespaceAlreadyExistsError if a Namespace with the same name already exists
+    """
     if namespace.name in _namespaces:
         raise NamespaceAlreadyExistsError("Namespace " + namespace.name + " already exists!")
 

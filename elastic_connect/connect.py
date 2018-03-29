@@ -12,7 +12,9 @@ def get_es():
 
 
 class Result(UserList):
-    """Handles the conversion of Elasticsearch query results to models."""
+    """
+    Handles the conversion of Elasticsearch query results to models.
+    """
 
     def __init__(self, result, model):
         self.meta = result
@@ -29,7 +31,8 @@ class Result(UserList):
 
 
 class DocTypeConnection(object):
-    """Connection for a specific model to Elasticsearch.
+    """
+    Connection for a specific model to Elasticsearch.
 
     For ES < 6 supports multiple doc_types in a single index.
     For ES >= 6 each model type needs it's own index.
@@ -38,6 +41,13 @@ class DocTypeConnection(object):
     # TODO: sanitize input by https://stackoverflow.com/questions/16205341/symbols-in-query-string-for-elasticsearch
 
     def __init__(self, model, es_namespace, index, doc_type, default_args={}):
+        """
+        :param model:
+        :param es_namespace:
+        :param index:
+        :param doc_type:
+        :param default_args:
+        """
         self.es_namespace = es_namespace
         self.es = es_namespace.get_es()
         self.index_name = es_namespace.index_prefix + doc_type
@@ -51,8 +61,8 @@ class DocTypeConnection(object):
         return default
 
     def __getattr__(self, name):
-        """All methods are redirected to the underlying elasticsearch connection.
-
+        """
+        All methods are redirected to the underlying elasticsearch connection.
         Search and get methods return Result on success, otherwise the JSON from Elasticseach is returned.
         """
 
@@ -72,6 +82,14 @@ class DocTypeConnection(object):
 
 
 def create_mappings(model_classes):
+    """
+    Shortcut for _namespaces['_default'].create_mappings
+
+    Creates index mapping in Elasticsearch for each model passed in.
+    Doesn't update existing mappings.
+    :param model_classes: a list of classes for which indices are created
+    :return: returns the names of indices which were actually created
+    """
     return _namespaces['_default'].create_mappings(model_classes)
 
 
