@@ -93,7 +93,7 @@ class Namespace(object):
     def wait_for_http_connection(self, initial_wait=10.0, step=0.1, timeout=30.0, https=False):
         """
         Waits for http(s) connection to Elasticsearch to be ready
-        
+
         :param initial_wait: initially wait in seconds
         :param step: try each step seconds after initial wait
         :param timeout: raise NamespaceConnectionError after timeout seconds of trying. This includes the inital wait.

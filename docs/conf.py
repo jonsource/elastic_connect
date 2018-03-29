@@ -132,7 +132,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'elastic_connect.tex', 'elastic\\_connect Documentation',
-     'Jan Šourek', 'manual'),
+     u'Jan Šourek', 'manual'),
 ]
 
 
