@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.abspath('../elastic_connect'))
 # -- Project information -----------------------------------------------------
 
 project = 'elastic_connect'
-copyright = '2018, Jan Šourek'
-author = 'Jan Šourek'
+copyright = u'2018, Jan Šourek'
+author = u'Jan Šourek'
 
 # The short X.Y version
 version = ''
