@@ -6,6 +6,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class IntegrityError(Exception):
+    pass
+
 class Model(object):
     """
     Base class for Models stored in elasticseach.
@@ -137,7 +140,6 @@ class Model(object):
         :param model: the model to be created
         :return: the model with the ``id`` set
         """
-        
 
         if model.id:
             response = cls.get_es_connection().create(id=model.id, body=model.serialize(exclude=['id'], flat=True))
@@ -159,12 +161,18 @@ class Model(object):
         :return: self with dependencies updated
         """
 
-
         if self.id:
+            cmp = self._compute_id()
+            if cmp and cmp != self.id:
+                raise IntegrityError("Can't save model with a changed computed id, create a new model")
             self.get_es_connection().update(id=self.id, body={'doc': self.serialize(exclude=['id'])})
         else:
-            response = self.get_es_connection().index(body=self.serialize(exclude=['id'], flat=True))
-            self.id = response['_id']
+            self.id = self._compute_id()
+            if self.id:
+                response = self.get_es_connection().create(id=self.id, body=self.serialize(exclude=['id'], flat=True))
+            else:
+                response = self.get_es_connection().index(body=self.serialize(exclude=['id'], flat=True))
+                self.id = response['_id']
             logger.debug("model.id from save %s", self.id)
         return self.post_save()
 
