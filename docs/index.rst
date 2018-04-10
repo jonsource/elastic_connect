@@ -6,17 +6,13 @@
 Elastic Connect
 ===============
 
-
-Usage
-=====
-
-
 Contents
 ========
 
 .. toctree::
    :maxdepth: 2
 
+   Usage<usage>
    API documentation<elasticconnect>
    Testing<testing>
 

@@ -4,6 +4,7 @@ import elastic_connect
 from elastic_connect.data_types import Keyword
 import elasticsearch.exceptions
 
+
 @pytest.fixture(scope="module")
 def fix_model_one_save():
 
@@ -30,6 +31,7 @@ def fix_model_one_save():
 
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneSave.get_index())
+
 
 @pytest.fixture(scope="module")
 def fix_model_one_id_save():
@@ -60,6 +62,7 @@ def fix_model_one_id_save():
 
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneIdSave.get_index())
+
 
 def test_create(fix_model_one_save):
     cls = fix_model_one_save

@@ -26,7 +26,7 @@ class Namespace(object):
     index_prefix thus using a different set of indices on the same cluster.
 
     For example you may use two different namespaces to run two instances of the same application against a single
-    elasticsearch cluster. But due to using different index_prefixes on the ``_default`` namespace, each application
+    elasticsearch cluster. Due to using different index_prefixes on the ``_default`` namespace, each application
     will preserve it's own data, i.e. one, with ``index_prefix="our"`` using indices ``our_users`` and ``our_data``,
     the other with ``index_prefix="their"`` using indices ``their_users`` and ``their_data``.
 
@@ -92,7 +92,7 @@ class Namespace(object):
 
     def wait_for_http_connection(self, initial_wait=10.0, step=0.1, timeout=30.0, https=False):
         """
-        Waits for http(s) connection to Elasticsearch to be ready
+        Waits for http(s) connection to elasticsearch to be ready
 
         :param initial_wait: initially wait in seconds
         :param step: try each step seconds after initial wait
@@ -117,7 +117,7 @@ class Namespace(object):
 
     def wait_for_ready(self, initial_attempt=True, initial_wait=2.0, step=0.1, timeout=30.0, https=False):
         """
-        Waits for Elasticsearch to get ready. First waits for the node to responde over http, then waits for
+        Waits for elasticsearch to get ready. First waits for the node to responde over http, then waits for
         the cluster to turn at least yellow.
 
         :param initial_attempt: If True, attempts a http connection right away, even before starting the initial_wait
@@ -145,7 +145,7 @@ class Namespace(object):
 
     def create_mappings(self, model_classes):
         """
-        Creates index mapping in Elasticsearch for each model passed in.
+        Creates index mapping in elasticsearch for each model passed in.
         Doesn't update existing mappings.
 
         :param model_classes: a list of classes for which indices are created
@@ -175,7 +175,10 @@ class Namespace(object):
 
     def delete_index(self, index, timeout=2.0):
         """
-        Deletes an index from Elasticsearch and blocks until it is deleted.
+        Deletes an index from elasticsearch and blocks until it is deleted.
+
+        Unlike the create_mappings and other operations, index deletes in elastic_connect *don't* perform any index_name
+        prefix magic. All index deletions in elastic_connect are attempted with the name provided 'as is'.
 
         :param index: name of index to be deleted
         :param timeout: if the index is not deleted after the number of seconds, Exception is raised.
@@ -203,6 +206,9 @@ class Namespace(object):
         """
         Deletes multiple indices, blocks until they are deleted.
 
+        Unlike the create_mappings and other operations, index deletes in elastic_connect *don't* perform any index_name
+        prefix magic. All index deletions in elastic_connect are attempted with the name provided 'as is'.
+
         :param indices: names of indices to be deleted
         :return: None
         """
@@ -216,6 +222,7 @@ _namespaces = {'_default': Namespace(name='_default', es_conf=None, index_prefix
 """
 A singleton dict containing all registered namespaces indexed by their names.
 """
+
 
 def register_namespace(namespace: Namespace):
     """

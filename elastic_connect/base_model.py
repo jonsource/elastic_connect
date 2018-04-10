@@ -49,10 +49,12 @@ class Model(object):
     @classmethod
     def get_index(cls):
         """
-        Returns the name of the index this model is stored in.
+        :deprecated: Returns the name of the index this model is stored in, includin any prefixes defined globally or in
+            namespace.
 
-        For ES < 5 returns what is defined in the database settings.
-        For ES >= 5 returns the '_doc_type' defined in cls._mapping
+            In ES >= 6 each model type needs it's own index.
+
+            ES < 6 supports multiple doc_types in a single index.
         """
 
         return cls._es_namespace.index_prefix + cls._meta['_doc_type']
@@ -293,7 +295,6 @@ class Model(object):
     def __update(self, name, value):
         super().__setattr__(name, self._mapping[name].on_update(value, self))
         return self
-
 
     @classmethod
     def get_es_mapping(cls):

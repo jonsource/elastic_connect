@@ -4,6 +4,7 @@ from elastic_connect.data_types import Keyword
 import elastic_connect.namespace
 import ujson as json
 
+
 class Slots(Model):
     __slots__ = ('id', 'value')
 
@@ -15,6 +16,7 @@ class Slots(Model):
         'value': Keyword(name='value')
     }
 
+
 class NoSlots(Model):
     _meta = {
         '_doc_type': 'model_child',
@@ -24,21 +26,26 @@ class NoSlots(Model):
         'value': Keyword(name='value')
     }
 
+
 @pytest.fixture(scope="module")
 def SimpleSlots():
     return Slots
+
 
 @pytest.fixture(scope="module")
 def SimpleNoSlots():
     return NoSlots
 
+
 @pytest.fixture(scope="module")
 def CreatedSlots(SimpleSlots, second_namespace):
     return second_namespace.register_model_class(SimpleSlots)
 
+
 @pytest.fixture(scope="module")
 def CreatedNoSlots(SimpleNoSlots, second_namespace):
     return second_namespace.register_model_class(SimpleNoSlots)
+
 
 def test_simple_model(SimpleSlots, SimpleNoSlots):
     s = SimpleSlots(value="12")
