@@ -74,7 +74,7 @@ def test_create(fix_model_one_save):
     cls.refresh()
 
     es = elastic_connect.get_es()
-    es_result = es.get(index=cls.get_index(), id=instance.id)
+    es_result = es.get(index=cls.get_index(), doc_type=cls._meta['_doc_type'], id=instance.id)
 
     assert es_result['found'] == True
     assert es_result['_source'] == {'value': 'value1'}
@@ -124,7 +124,7 @@ def test_create_with_id(fix_model_one_save):
     cls.refresh()
 
     es = elastic_connect.get_es()
-    es_result = es.get(index=cls.get_index(), id=instance.id)
+    es_result = es.get(index=cls.get_index(), doc_type=cls._meta['_doc_type'], id=instance.id)
 
     assert es_result['found'] is True
     assert es_result['_source'] == {'value': 'value1'}

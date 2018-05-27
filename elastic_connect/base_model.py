@@ -216,33 +216,37 @@ class Model(object):
         Get a model by id from elasticsearch.
 
         :param id: id of the model to get
-        :return: flat instance of the model, no joined models are loaded
+        :return: returns an instance of elastic_connect.connect.Result
         """
 
         ret = cls.get_es_connection().get(id=id)
         return ret
 
     @classmethod
-    def all(cls):
+    def all(cls, size=100):
         """
         Get all models from Elasticsearch.
+        :param size: max number of hits to return. Default = 100.
+        :return: returns an instance of elastic_connect.connect.Result
         """
 
-        return cls.get_es_connection().search()
+        return cls.get_es_connection().search(size=size)
 
     @classmethod
-    def find_by(cls, **kw):
+    def find_by(cls, size=100, **kw):
         """
         Search for models in Elasticsearch by attribute values.
 
         :example:
             model.find_by(email="test@test.cz")
 
+        :param size: max number of hits to return. Default = 100.
         :param kw: attributes of the model by which to search
-        :return: flat instance of the model, no joined models are loaded
+        :return: returns an instance of elastic_connect.connect.Result
         """
 
         ret = cls.get_es_connection().search(body={
+            "size": size,
             "query": {
                 "term": kw
             }

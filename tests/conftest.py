@@ -1,6 +1,7 @@
 import os
 import sys
 import pytest
+import logging
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 ROOT_TEST_DIR = os.path.abspath(os.path.join(ROOT_DIR, "tests"))
@@ -10,3 +11,4 @@ print(sys.path)
 
 import elastic_connect
 from elastic_connect.testing import *
+logging.basicConfig(level=logging.INFO)
