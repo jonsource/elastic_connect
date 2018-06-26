@@ -233,7 +233,7 @@ class Model(object):
         return cls.get_es_connection().search(size=size)
 
     @classmethod
-    def find_by(cls, size=100, **kw):
+    def find_by(cls, size=100, sort=[], search_after=None, query=None, **kw):
         """
         Search for models in Elasticsearch by attribute values.
 
@@ -245,12 +245,37 @@ class Model(object):
         :return: returns an instance of elastic_connect.connect.Result
         """
 
-        ret = cls.get_es_connection().search(body={
-            "size": size,
-            "query": {
-                "term": kw
+        if not query:
+            query = kw
+
+        append_uid = True
+        for s in sort:
+            if '_uid' in s:
+                append_uid = False
+                break
+
+        if append_uid:
+            sort.append({"_uid": "asc"})
+
+        if len(query.keys()) == 1:
+            _query = {"term": query}
+        else:
+            _query = {
+                "bool": {
+                    "must": [{"term": {k: kw[k]}} for k in query.keys()]
+                }
             }
-        })
+
+        body = {
+            "size": size,
+            "query": _query,
+            "sort": sort
+        }
+        if search_after:
+            body['search_after'] = search_after
+
+        logger.debug("find_by body %s", body)
+        ret = cls.get_es_connection().search(body=body)
         return ret
 
     def serialize(self, exclude=["password"], depth=0, to_str=False, flat=False):

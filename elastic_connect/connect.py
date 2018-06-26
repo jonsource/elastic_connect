@@ -16,8 +16,11 @@ class Result(UserList):
     Handles the conversion of Elasticsearch query results to models.
     """
 
-    def __init__(self, result, model):
+    def __init__(self, result, model, method, pass_args):
         self.meta = result
+        self.method = method
+        self.pass_args = pass_args
+        self.model = model
         ret = []
         try:
             self.hits = result['hits']['hits']
@@ -27,7 +30,16 @@ class Result(UserList):
         for hit in self.hits:
             ret.append(model.from_es(hit))
         self.results = ret
+        if len(self.hits):
+            self.search_after_values = self.hits[-1]['sort']
+        else:
+            self.search_after_values = None
         super(Result, self).__init__(self.results)
+
+    def search_after(self):
+        self.pass_args['body']['search_after'] = self.search_after_values
+        return getattr(self.model.get_es_connection(), self.method)(**self.pass_args)
+
 
 
 class DocTypeConnection(object):
@@ -73,7 +85,7 @@ class DocTypeConnection(object):
             pass_args.update(kwargs)
             data = es_func(**pass_args)
             if 'hits' in data or name == "get":
-                result = Result(data, self.model)
+                result = Result(data, self.model, method=name, pass_args=pass_args)
                 if name == "get" and len(result) == 1:
                     return result[0]
                 return result
