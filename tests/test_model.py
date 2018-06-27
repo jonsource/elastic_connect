@@ -300,6 +300,12 @@ def test_find_by_multi(fix_model_two_save):
     found = cls.find_by(value='value6', subvalue='val1')
     assert len(found) == 1
 
+    found = cls.find_by(value='value6', subvalue='val3')
+    assert len(found) == 0
+
+    found = cls.find_by(value='value5', subvalue='val1')
+    assert len(found) == 2
+
 
 def test_find_by_multi_sort(fix_model_two_save):
     cls = fix_model_two_save
@@ -413,3 +419,57 @@ def test_find_by_search_after_default_sort_using_result(fix_model_two_save):
 
     found4 = found3.search_after()
     assert len(found4) == 0
+
+
+def test_find_by_search_after_custom_value(fix_model_two_save):
+    cls = fix_model_two_save
+
+    instance1 = cls.create(value='value20', subvalue='1')  # type: TwoSave
+    cls.refresh()
+    instance2 = cls.create(value='value20', subvalue='2')  # type: TwoSave
+    cls.refresh()
+    instance3 = cls.create(value='value20', subvalue='3')  # type: TwoSave
+    cls.refresh()
+    instance4 = cls.create(value='value20', subvalue='3')  # type: TwoSave
+    cls.refresh()
+
+    found1 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}])
+    assert len(found1) == 4
+    assert found1[0].subvalue == '3'
+    assert found1[0].id == instance3.id
+    assert found1[1].subvalue == '3'
+    assert found1[1].id == instance4.id
+    assert found1[2].subvalue == '2'
+    assert found1[3].subvalue == '1'
+
+    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', ''])
+    assert len(found2) == 4
+
+    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', 'model_save_two#'+instance3.id])
+    assert len(found2) == 3
+    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', 'model_save_two#' + instance4.id])
+    assert len(found2) == 2
+
+    found3 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['2', ''])
+    assert len(found2) == 2
+
+def test_find_by_query(fix_model_two_save):
+    cls = fix_model_two_save
+
+    instance1 = cls.create(value='value30', subvalue='www.zive.cz')  # type: TwoSave
+    cls.refresh()
+    instance2 = cls.create(value='value30', subvalue='zpravy.zive.cz')  # type: TwoSave
+    cls.refresh()
+    instance3 = cls.create(value='value40', subvalue='www.zive.cz')  # type: TwoSave
+    cls.refresh()
+    instance4 = cls.create(value='value50', subvalue='zpravy.aktualne.cz')  # type: TwoSave
+    cls.refresh()
+
+    found1 = cls.find_by(query="subvalue: *.zive.cz")
+    assert len(found1) == 3
+
+    found1 = cls.find_by(query="subvalue: *.zive.cz AND value: *40")
+    assert len(found1) == 1
+
+    found1 = cls.find_by(query="subvalue: *.zive.cz AND value: *50")
+    assert len(found1) == 0

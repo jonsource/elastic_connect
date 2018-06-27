@@ -233,38 +233,78 @@ class Model(object):
         return cls.get_es_connection().search(size=size)
 
     @classmethod
-    def find_by(cls, size=100, sort=[], search_after=None, query=None, **kw):
+    def find_by(cls, size=100, sort=None, search_after=None, query=None, **kw):
         """
         Search for models in Elasticsearch by attribute values.
 
         :example:
+
+        .. code-block:: python
+
+            # return model with email="test@test.cz"
             model.find_by(email="test@test.cz")
+
+            # return model with both email="test@test.cz" and parent=10
+            model.find_by(email="test@test.cz", parent=10)
+
+            # return models with parent 10 sorted by email ascending
+            model.find_by(parent=10, sort=[{"email":"asc"}])
+
+            # return models with email >= "foo@bar.cz" (and _uid > '' as per default sort order,
+            # every _uid is greated than '')
+            model.find_by(parent=10, sort=[{"email":"asc"}], search_after["foo@bar.cz", ''])
+
+            # return models with parent 10 and email _anything_@bar.cz
+            model.find_by(query="parent: 10 AND email: *@bar.cz")
 
         :param size: max number of hits to return. Default = 100.
         :param kw: attributes of the model by which to search
+        :param sort: sorting of the result, default is {"_uid": "asc"}, default is also appended as last resort to all
+            sorts that don't use _uid. Sorting by _id is not supported by default, use _uid (_doc_type + '#' + _id) instead.
+        :param search_after: searches for results 'after' the value(s) supplied, preferably used with
+            elastic_connect.connect.Result.search_after_values
+        :param query: instead of specifying kw search arguments, you may enter here a wildcard query
         :return: returns an instance of elastic_connect.connect.Result
         """
+
+        def prepare_sort(sort):
+            if not sort:
+                sort = [{"_uid": "asc"}]
+                return sort
+
+            for s in sort:
+                if '_uid' in s:
+                    return sort
+
+            sort.append({"_uid": "asc"})
+            return sort
 
         if not query:
             query = kw
 
-        append_uid = True
-        for s in sort:
-            if '_uid' in s:
-                append_uid = False
-                break
+        sort = prepare_sort(sort)
 
-        if append_uid:
-            sort.append({"_uid": "asc"})
-
-        if len(query.keys()) == 1:
-            _query = {"term": query}
-        else:
+        if isinstance(query, str):
             _query = {
                 "bool": {
-                    "must": [{"term": {k: kw[k]}} for k in query.keys()]
+                    "must": [
+                        {"query_string": {
+                                "query": query,
+                                "analyze_wildcard": True
+                            }
+                        }
+                    ]
                 }
             }
+        else:
+            if len(query.keys()) == 1:
+                _query = {"term": query}
+            else:
+                _query = {
+                    "bool": {
+                        "must": [{"term": {k: kw[k]}} for k in query.keys()]
+                    }
+                }
 
         body = {
             "size": size,

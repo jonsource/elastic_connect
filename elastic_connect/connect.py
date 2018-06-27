@@ -37,6 +37,23 @@ class Result(UserList):
         super(Result, self).__init__(self.results)
 
     def search_after(self):
+        """
+        Utilizes the Elasticsearch search_after capability to perform some real-time scrolling through the results.
+        Uses the parameters of the search that generated this result to perform another search, with the last models
+        order values as search_after values.
+
+        :example:
+
+        .. code-block:: python
+
+            found = models.find_by(website='www.zive.cz', size=10)
+            # first 10 results (sorted by _uid in ascending order - the default) are returned
+
+            found.search_after()
+            # further 10 results (sorted by _uid) are returned
+
+        :return: further results
+        """
         self.pass_args['body']['search_after'] = self.search_after_values
         return getattr(self.model.get_es_connection(), self.method)(**self.pass_args)
 
