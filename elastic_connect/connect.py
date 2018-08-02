@@ -30,7 +30,7 @@ class Result(UserList):
         for hit in self.hits:
             ret.append(model.from_es(hit))
         self.results = ret
-        if len(self.hits):
+        if len(self.hits) and 'sort' in self.hits[-1]:
             self.search_after_values = self.hits[-1]['sort']
         else:
             self.search_after_values = None

@@ -222,16 +222,19 @@ def test_change_generated_id(fix_model_one_id_save):
 def test_find_by_simple(fix_model_one_save):
     cls = fix_model_one_save
 
-    instance1 = cls.create(value='value1')  # type: OneSave
-    instance2 = cls.create(value='value2')  # type: OneSave
+    instance1 = cls.create(value='value1simple')  # type: OneSave
+    instance2 = cls.create(value='value2simple')  # type: OneSave
 
     cls.refresh()
 
-    found1 = cls.find_by(value='value1')
+    found1 = cls.find_by(value='value1simple')
+    print("\n")
+    for i in found1:
+        print(i)
     assert len(found1) == 1
     assert found1[0].id == instance1.id
 
-    found2 = cls.find_by(value='value2')
+    found2 = cls.find_by(value='value2simple')
     assert len(found2) == 1
     assert found2[0].id == instance2.id
 
@@ -325,100 +328,104 @@ def test_find_by_multi_sort(fix_model_two_save):
     assert len(found) == 3
     assert found[0].subvalue < found[1].subvalue < found[2].subvalue
 
-
 def test_find_by_search_after_default_sort(fix_model_two_save):
     cls = fix_model_two_save
+    max = 100
 
-    instance1 = cls.create(value='value9', subvalue='va1')  # type: TwoSave
-    instance2 = cls.create(value='value9', subvalue='va2')  # type: TwoSave
-    instance3 = cls.create(value='value9', subvalue='va3')  # type: TwoSave
+    instance = []
 
-    cls.refresh()
+    for i in range(max):
+        instance.append(cls.create(value='value9', subvalue='xx'+str(i)))  # type: TwoSave
+        cls.refresh()
 
-    found1 = cls.find_by(value='value9', size=1)
-    assert len(found1) == 1
-    assert found1[0].subvalue == 'va1'
-    assert found1[0].id == instance1.id
-    assert ('model_save_two#'+found1[0].id) == found1.search_after_values[0]
+    # _uids are generated sequentialy, but with a special kind of sorting different from ASCII string sort order!!
+    instance = sorted(instance, key=lambda a: a.id)
 
-    found2 = cls.find_by(value='value9', size=1, search_after=found1.search_after_values)
-    assert len(found2) == 1
-    assert found2[0].subvalue == 'va2'
-    assert found2[0].id == instance2.id
-    assert ('model_save_two#' + found2[0].id) == found2.search_after_values[0]
+    found = cls.find_by(value='value9', size=1000)
+    assert len(found) == max
 
-    found3 = cls.find_by(value='value9', size=1, search_after=found2.search_after_values)
-    assert len(found3) == 1
-    assert found3[0].subvalue == 'va3'
-    assert found3[0].id == instance3.id
-    assert ('model_save_two#' + found3[0].id) == found3.search_after_values[0]
+    found = None
+    for i in range(max):
+        if found:
+            found = cls.find_by(value='value9', size=1, search_after=found.search_after_values)
+        else:
+            found = cls.find_by(value='value9', size=1)
 
-    found4 = cls.find_by(value='value9', size=1, search_after=found3.search_after_values)
-    assert len(found4) == 0
+        if i == max:
+            assert len(found) == 0
+            continue
+
+        assert len(found) == 1
+        assert found[0].subvalue == instance[i].subvalue
+        assert found[0].id == instance[i].id
+        assert ('model_save_two#'+found[0].id) == found.search_after_values[0]
 
 
 def test_find_by_search_after_custom_sort(fix_model_two_save):
     cls = fix_model_two_save
+    max = 100
 
-    instance1 = cls.create(value='value10', subvalue='vl1')  # type: TwoSave
-    cls.refresh()
-    instance2 = cls.create(value='value10', subvalue='vl2')  # type: TwoSave
-    cls.refresh()
-    instance3 = cls.create(value='value10', subvalue='vl3')  # type: TwoSave
-    cls.refresh()
+    instance = []
 
-    found1 = cls.find_by(value='value10', size=1, sort=[{'_uid': 'desc'}])
-    assert len(found1) == 1
-    assert found1[0].subvalue == 'vl3'
-    assert found1[0].id == instance3.id
-    assert 'model_save_two#'+found1[0].id == found1.search_after_values[0]
+    for i in range(max):
+        instance.append(cls.create(value='value10', subvalue='xvl' + str(i)))  # type: TwoSave
+        cls.refresh()
 
-    found2 = cls.find_by(value='value10', size=1, sort=[{'_uid': 'desc'}], search_after=found1.search_after_values)
-    assert len(found2) == 1
-    assert found2[0].subvalue == 'vl2'
-    assert found2[0].id == instance2.id
-    assert 'model_save_two#' + found2[0].id == found2.search_after_values[0]
+    # _uids are generated sequentialy, but with a special kind of sorting different from ASCII string sort order!!
+    instance = sorted(instance, key=lambda a: a.id, reverse=True)
 
-    found3 = cls.find_by(value='value10', size=1, sort=[{'_uid': 'desc'}], search_after=found2.search_after_values)
-    assert len(found3) == 1
-    assert found3[0].subvalue == 'vl1'
-    assert found3[0].id == instance1.id
-    assert 'model_save_two#' + found3[0].id == found3.search_after_values[0]
+    found = cls.find_by(value='value10', size=1000, sort=[{'_uid': 'desc'}])
+    assert len(found) == max
 
-    found4 = cls.find_by(value='value10', size=1, sort=[{'_uid': 'desc'}], search_after=found3.search_after_values)
-    assert len(found4) == 0
+    found = None
+    for i in range(max):
+        if found:
+            found = cls.find_by(value='value10', size=1, sort=[{'_uid': 'desc'}], search_after=found.search_after_values)
+        else:
+            found = cls.find_by(value='value10', size=1, sort=[{'_uid': 'desc'}])
+
+        if i == max:
+            assert len(found) == 0
+            continue
+
+        assert len(found) == 1
+        assert found[0].subvalue == instance[i].subvalue
+        assert found[0].id == instance[i].id
+        assert ('model_save_two#' + found[0].id) == found.search_after_values[0]
 
 
 def test_find_by_search_after_default_sort_using_result(fix_model_two_save):
     cls = fix_model_two_save
 
-    instance1 = cls.create(value='value11', subvalue='sv1')  # type: TwoSave
-    cls.refresh()
-    instance2 = cls.create(value='value11', subvalue='sv2')  # type: TwoSave
-    cls.refresh()
-    instance3 = cls.create(value='value11', subvalue='sv3')  # type: TwoSave
-    cls.refresh()
+    max = 100
 
-    found1 = cls.find_by(value='value11', size=1)
-    assert len(found1) == 1
-    assert found1[0].subvalue == 'sv1'
-    assert found1[0].id == instance1.id
-    assert ('model_save_two#'+found1[0].id) == found1.search_after_values[0]
+    instance = []
 
-    found2 = found1.search_after()
-    assert len(found2) == 1
-    assert found2[0].subvalue == 'sv2'
-    assert found2[0].id == instance2.id
-    assert ('model_save_two#' + found2[0].id) == found2.search_after_values[0]
+    for i in range(max):
+        instance.append(cls.create(value='value11', subvalue='sxvl' + str(i)))  # type: TwoSave
+        cls.refresh()
 
-    found3 = found2.search_after()
-    assert len(found3) == 1
-    assert found3[0].subvalue == 'sv3'
-    assert found3[0].id == instance3.id
-    assert ('model_save_two#' + found3[0].id) == found3.search_after_values[0]
+    # _uids are generated sequentialy, but with a special kind of sorting different from ASCII string sort order!!
+    instance = sorted(instance, key=lambda a: a.id)
 
-    found4 = found3.search_after()
-    assert len(found4) == 0
+    found = cls.find_by(value='value11', size=1000)
+    assert len(found) == max
+
+    found = None
+    for i in range(max):
+        if found:
+            found = found.search_after()
+        else:
+            found = cls.find_by(value='value11', size=1)
+
+        if i == max:
+            assert len(found) == 0
+            continue
+
+        assert len(found) == 1
+        assert found[0].subvalue == instance[i].subvalue
+        assert found[0].id == instance[i].id
+        assert ('model_save_two#' + found[0].id) == found.search_after_values[0]
 
 
 def test_find_by_search_after_custom_value(fix_model_two_save):
