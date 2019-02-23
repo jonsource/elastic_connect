@@ -6,10 +6,12 @@ import logging
 
 _global_prefix = ''
 """
-Global index prefix. Used for example to distinguish between index names used in production and in tests.
+Global index prefix. Used for example to distinguish between index names
+used in production and in tests.
 """
 
 logger = logging.getLogger(__name__)
+
 
 class NamespaceConnectionError(Exception):
     pass
@@ -21,25 +23,33 @@ class NamespaceAlreadyExistsError(Exception):
 
 class Namespace(object):
     """
-    Object describing a namespace of an elasticsearch cluster or a connection to a different elasticsearch cluster.
-    Each namespace may have a different es_conf, thus connecting to a different elasticsearch cluster and/or a different
-    index_prefix thus using a different set of indices on the same cluster.
+    Object describing a namespace of an elasticsearch cluster or a
+    connection to a different elasticsearch cluster. Each namespace may
+    have a different es_conf, thus connecting to a different
+    elasticsearch cluster and/or a different index_prefix thus using a
+    different set of indices on the same cluster.
 
-    For example you may use two different namespaces to run two instances of the same application against a single
-    elasticsearch cluster. Due to using different index_prefixes on the ``_default`` namespace, each application
-    will preserve it's own data, i.e. one, with ``index_prefix="our"`` using indices ``our_users`` and ``our_data``,
-    the other with ``index_prefix="their"`` using indices ``their_users`` and ``their_data``.
+    For example you may use two different namespaces to run two
+    instances of the same application against a single elasticsearch
+    cluster. Due to using different index_prefixes on the ``_default``
+    namespace, each application will preserve it's own data, i.e. one,
+    with ``index_prefix="our"`` using indices ``our_users`` and
+    ``our_data``, the other with ``index_prefix="their"`` using indices
+    ``their_users`` and ``their_data``.
 
-    It is also possible to use multiple namespaces in a single application.
+    It is also possible to use multiple namespaces in a single
+    application.
     """
 
     def __init__(self, name, es_conf, index_prefix=None):
         """
         :param name: name of the namespace, must be unique
-        :param es_conf: the configuration of the namespace i.e. at least {'host':..., 'port':...}. It is internally
-            passed to the underlaying elasticsearch.Elasticsearch class.
-        :param index_prefix: prefix of the namespace, it should probably be unique on the same cluster for sanity
-            reasons, but no check is enforced
+        :param es_conf: the configuration of the namespace i.e. at least
+            {'host':..., 'port':...}. It is internally passed to the
+            underlaying elasticsearch.Elasticsearch class.
+        :param index_prefix: prefix of the namespace, it should probably
+            be unique on the same cluster for sanity reasons, but no
+            check is enforced
         """
 
         self.name = name
@@ -51,13 +61,14 @@ class Namespace(object):
 
     def register_model_class(self, model_class):
         """
-        Registers a model class in this namespace. By default all model classes are registered in the ``_default``
-        namespace. By registering a model in a namespace it is possible to reuse it to connect to a different
-        Elasticsearch cluster.
+        Registers a model class in this namespace. By default all model
+        classes are registered in the ``_default`` namespace. By
+        registering a model in a namespace it is possible to reuse it to
+        connect to a different Elasticsearch cluster.
 
         :param model_class: The model class to be registered
-        :return: Returns a new model class with name prefixed with Namespace.name and properly set _es_namespace
-            reference.
+        :return: Returns a new model class with name prefixed with
+            Namespace.name and properly set _es_namespace reference.
         """
 
         if self.name == '_default':
@@ -90,13 +101,18 @@ class Namespace(object):
         port = self.es_conf[0].get('port', 9200)
         return "%s://%s:%s" % (protocol, host, port)
 
-    def wait_for_http_connection(self, initial_wait=10.0, step=0.1, timeout=30.0, https=False):
+    def wait_for_http_connection(self,
+                                 initial_wait=10.0,
+                                 step=0.1,
+                                 timeout=30.0,
+                                 https=False):
         """
         Waits for http(s) connection to elasticsearch to be ready
 
         :param initial_wait: initially wait in seconds
         :param step: try each step seconds after initial wait
-        :param timeout: raise NamespaceConnectionError after timeout seconds of trying. This includes the inital wait.
+        :param timeout: raise NamespaceConnectionError after timeout
+            seconds of trying. This includes the inital wait.
         :param https: whether to use http or https protocol
         :return: True
         :raises: NamespaceConnectionError on connection timeout
@@ -109,29 +125,40 @@ class Namespace(object):
             time.sleep(step)
             try:
                 ret = requests.get(url)
-            except Exception as e:
+            except Exception:
                 continue
             if ret.status_code == 200:
                 return True
-        raise NamespaceConnectionError("Elasticsearch @ %s connection timeout" % url)
+        raise NamespaceConnectionError(
+            "Elasticsearch @ %s connection timeout" % url)
 
-    def wait_for_ready(self, initial_attempt=True, initial_wait=2.0, step=0.1, timeout=30.0, https=False):
+    def wait_for_ready(self,
+                       initial_attempt=True,
+                       initial_wait=2.0,
+                       step=0.1,
+                       timeout=30.0,
+                       https=False):
         """
-        Waits for elasticsearch to get ready. First waits for the node to responde over http, then waits for
-        the cluster to turn at least yellow.
+        Waits for elasticsearch to get ready. First waits for the node
+        to responde over http, then waits for the cluster to turn at
+        least yellow.
 
-        :param initial_attempt: If True, attempts a http connection right away, even before starting the initial_wait
+        :param initial_attempt: If True, attempts a http connection
+            right away, even before starting the initial_wait
         :param initial_wait: initially wait in seconds
         :param step: try each step seconds after initial wait
-        :param timeout: raise NamespaceConnectionError after timeout seconds of trying. This includes the inital wait.
+        :param timeout: raise NamespaceConnectionError after timeout
+            seconds of trying. This includes the inital wait.
         :param https: whether to use http or https protocol
         :return: returns cluster health info
         """
         if initial_attempt:
             try:
-                self.wait_for_http_connection(initial_wait=0, step=0, timeout=0, https=https)
-            except Exception as e:
-                self.wait_for_http_connection(initial_wait, step, timeout, https)
+                self.wait_for_http_connection(initial_wait=0, step=0,
+                                              timeout=0, https=https)
+            except Exception:
+                self.wait_for_http_connection(initial_wait, step,
+                                              timeout, https)
         return self.wait_for_yellow()
 
     @property
@@ -139,7 +166,8 @@ class Namespace(object):
         """
         @property
 
-        Returns the calculated index prefix, taking into account any global prefixes as well.
+        Returns the calculated index prefix, taking into account any
+        global prefixes as well.
         """
         return _global_prefix + self._index_prefix
 
@@ -148,8 +176,10 @@ class Namespace(object):
         Creates index mapping in elasticsearch for each model passed in.
         Doesn't update existing mappings.
 
-        :param model_classes: a list of classes for which indices are created
-        :return: returns the names of indices which were actually created
+        :param model_classes: a list of classes for which indices are
+            created
+        :return: returns the names of indices which were actually
+            created
         """
 
         def safe_create(index, body):
@@ -163,7 +193,9 @@ class Namespace(object):
 
         mappings = {}
         for model_class in model_classes:
-            mappings[model_class.get_index()] = {"properties": model_class.get_es_mapping()}
+            mappings[model_class.get_index()] = {
+                "properties": model_class.get_es_mapping()
+                }
 
         created = []
 
@@ -175,19 +207,23 @@ class Namespace(object):
 
     def delete_index(self, index, timeout=2.0):
         """
-        Deletes an index from elasticsearch and blocks until it is deleted.
+        Deletes an index from elasticsearch and blocks until it is
+        deleted.
 
-        Unlike the create_mappings and other operations, index deletes in elastic_connect *don't* perform any index_name
-        prefix magic. All index deletions in elastic_connect are attempted with the name provided 'as is'.
+        Unlike the create_mappings and other operations, index deletes
+        in elastic_connect *don't* perform any index_name prefix magic.
+        All index deletions in elastic_connect are attempted with the
+        name provided 'as is'.
 
         :param index: name of index to be deleted
-        :param timeout: if the index is not deleted after the number of seconds, Exception is raised.
-            If timeout = 0 doesn't block and returns immediately
+        :param timeout: if the index is not deleted after the number of
+            seconds, Exception is raised. If timeout = 0 doesn't block
+            and returns immediately
         :return: none
         """
 
         es = self.get_es()
-        result = es.indices.delete(index=index)
+        es.indices.delete(index=index)
         rep = int(10 * timeout)
 
         if not timeout:
@@ -198,7 +234,9 @@ class Namespace(object):
             time.sleep(0.1)
 
         if not rep and es.indices.exists(index=index):
-            raise Exception("Timeout. Index %s still exists after %s seconds." % (index, timeout))
+            raise Exception(
+                "Timeout. Index %s still exists after %s seconds." %
+                index, timeout)
 
         logger.info("Index %s deleted", (index))
 
@@ -206,8 +244,10 @@ class Namespace(object):
         """
         Deletes multiple indices, blocks until they are deleted.
 
-        Unlike the create_mappings and other operations, index deletes in elastic_connect *don't* perform any index_name
-        prefix magic. All index deletions in elastic_connect are attempted with the name provided 'as is'.
+        Unlike the create_mappings and other operations, index deletes
+        in elastic_connect *don't* perform any index_name prefix magic.
+        All index deletions in elastic_connect are attempted with the
+        name provided 'as is'.
 
         :param indices: names of indices to be deleted
         :return: None
@@ -218,22 +258,26 @@ class Namespace(object):
             self.delete_index(index)
 
 
-_namespaces = {'_default': Namespace(name='_default', es_conf=None, index_prefix='')}
+_namespaces = {'_default': Namespace(name='_default', es_conf=None,
+                                     index_prefix='')}
 """
-A singleton dict containing all registered namespaces indexed by their names.
+A singleton dict containing all registered namespaces indexed by their
+names.
 """
 
 
 def register_namespace(namespace: Namespace):
     """
-    Register a new namespace. Changing a Namespace's parameters after it was registered may do crazy things,
-    don't do it.
+    Register a new namespace. Changing a Namespace's parameters after it
+    was registered may do crazy things, don't do it.
 
     :param namespace: Namespace instance to be registered
     :return: None
-    :raises: NamespaceAlreadyExistsError if a Namespace with the same name already exists
+    :raises: NamespaceAlreadyExistsError if a Namespace with the same
+        name already exists
     """
     if namespace.name in _namespaces:
-        raise NamespaceAlreadyExistsError("Namespace " + namespace.name + " already exists!")
+        raise NamespaceAlreadyExistsError(
+            "Namespace " + namespace.name + " already exists!")
 
     _namespaces[namespace.name] = namespace

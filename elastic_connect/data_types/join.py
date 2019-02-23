@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Join(BaseDataType):
     """Abstract parent of model joins - dependent child / parent models."""
 
@@ -14,7 +15,9 @@ class Join(BaseDataType):
         self.source = None
         self.target = None
         self._source_module, self._source = self.split_class_def(source)
-        self._target_module, self._target, self.target_property = self.parse_join_target(target)
+        (self._target_module,
+         self._target,
+         self.target_property) = self.parse_join_target(target)
 
     @staticmethod
     def split_class_def(class_def: str):
@@ -23,7 +26,10 @@ class Join(BaseDataType):
 
     @staticmethod
     def class_for_name(module_name: str, class_name: str):
-        """Handles import of target model class. Needed to prevent circular dependency."""
+        """
+        Handles import of target model class. Needed to prevent circular
+        dependency.
+        """
         m = importlib.import_module(module_name)
         c = getattr(m, class_name)
         return c
@@ -38,25 +44,33 @@ class Join(BaseDataType):
         return module, class_name, target_property
 
     def get_target(self):
-        """Gets the target model of the join."""
+        """
+        Gets the target model of the join.
+        """
 
         if not self.target:
-            # get class from string - to avoid circular imports and class self reference
-            self.target = self.class_for_name(self._target_module, self._target)
+            # get class from string - to avoid circular imports and class self
+            # reference
+            self.target = self.class_for_name(self._target_module,
+                                              self._target)
         return self.target
 
     def get_source(self):
         """Gets the source model of the join."""
 
         if not self.source:
-            # get class from string - to avoid circular imports and class self reference
-            self.source = self.class_for_name(self._source_module, self._source)
+            # get class from string - to avoid circular imports and class self
+            # reference
+            self.source = self.class_for_name(self._source_module,
+                                              self._source)
         return self.source
 
     def _get_es_type(self):
         return 'keyword'
 
-    def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
+    def insert_reference(self,
+                         value: 'base_model.Model',   # noqa: F821
+                         model: 'base_model.Model'):  # noqa: F821
         return None
 
     def include_in_flat(self):
@@ -69,7 +83,9 @@ class Join(BaseDataType):
 
 
 class SingleJoin(Join):
-    """1:1 model join."""
+    """
+    1:1 model join.
+    """
 
     def lazy_load(self, model):
         try:
@@ -81,7 +97,11 @@ class SingleJoin(Join):
             loaded = self.get_target().get(value)
         return loaded
 
-    def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False, flat: bool = True):
+    def serialize(self,
+                  value: (str, 'base_model.Model'),  # noqa: F821
+                  depth: int,
+                  to_str: bool = False,
+                  flat: bool = True):
         if depth < 1:
             try:
                 if value.id:
@@ -100,20 +120,32 @@ class SingleJoin(Join):
         logger.debug("serialize single %s", ret)
         return ret
 
-    def on_update(self, value: 'base_model.Model', model: 'base_model.Model'):
+    def on_update(self,
+                  value: 'base_model.Model',   # noqa: F821
+                  model: 'base_model.Model'):  # noqa: F821
         if self.target_property and self._is_value_model(value):
-            logger.debug("SingleJoin::on_update %s.%s = %s -> %s", model.__class__.__name__, self.name, value, self.name)
+            logger.debug("SingleJoin::on_update %s.%s = %s -> %s",
+                         model.__class__.__name__,
+                         self.name, value,
+                         self.name)
             target_type = value._mapping[self.target_property]
             target_type.insert_reference(model, value)
         return super().on_update(value, model)
 
-    def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
-        logger.debug("SingleJoin::insert_reference %s %s", self.name, value.id)
+    def insert_reference(self,
+                         value: 'base_model.Model',   # noqa: F821
+                         model: 'base_model.Model'):  # noqa: F821
+        logger.debug("SingleJoin::insert_reference %s %s",
+                     self.name,
+                     value.id)
         model.__setattr__(self.name, value)
 
     def on_save(self, model):
         value = model.__getattribute__(self.name)
-        logger.debug("SingleJoin::on_save %s %s %s", self.name, model.id, value and (hasattr(value, 'id') and value.id))
+        logger.debug("SingleJoin::on_save %s %s %s",
+                     self.name,
+                     model.id,
+                     value and (hasattr(value, 'id') and value.id))
         if value and hasattr(value, 'id') and value.id is None:
             logger.debug("SingleJoin::on_save - saving")
             value.save()
@@ -125,7 +157,9 @@ class MultiJoin(Join):
     """1:N model join."""
 
     def __init__(self, name: str, source: str, target: str, join_by=None):
-        super(MultiJoin, self).__init__(name=name, source=source, target=target)
+        super(MultiJoin, self).__init__(name=name,
+                                        source=source,
+                                        target=target)
         self.join_by = join_by
 
     def get_join_by(self):
@@ -140,17 +174,29 @@ class MultiJoin(Join):
             value = model.__getattribute__(self.name)
         return [self.get_target().get(val) for val in value]
 
-    def serialize(self, value: (str, 'base_model.Model'), depth: int, to_str: bool = False, flat: bool = True):
-        ret = [SingleJoin.serialize(self, value=model, depth=depth, to_str=to_str, flat=flat) for model in value]
+    def serialize(self,
+                  value: (str, 'base_model.Model'),  # noqa: F821
+                  depth: int,
+                  to_str: bool = False,
+                  flat: bool = True):
+        ret = [SingleJoin.serialize(self, value=model, depth=depth,
+                                    to_str=to_str, flat=flat)
+               for model in value]
         logger.debug("MultiJoin::serialize %s", ret)
         return ret
 
     def get_default_value(self):
         return []
 
-    def on_update(self, value: 'list[base_model.Model]', model: 'base_model.Model'):
+    def on_update(self,
+                  value: 'list[base_model.Model]',  # noqa: F821
+                  model: 'base_model.Model'):       # noqa: F821
         if self.target_property:
-            logger.debug("MultiJoin::on_update %s.%s = %s -> %s", model.__class__.__name__, self.name, value, self.name)
+            logger.debug("MultiJoin::on_update %s.%s = %s -> %s",
+                         model.__class__.__name__,
+                         self.name,
+                         value,
+                         self.name)
             for val in value:
                 if not self._is_value_model(val):
                     continue
@@ -158,17 +204,24 @@ class MultiJoin(Join):
                 target_type.insert_reference(model, val)
         return super().on_update(value, model)
 
-    def insert_reference(self, value: 'base_model.Model', model: 'base_model.Model'):
-        logger.debug("MultiJoin::insert_reference %s.%s = %s", model, self.name, value)
+    def insert_reference(self,
+                         value: 'base_model.Model',   # noqa: F821
+                         model: 'base_model.Model'):  # noqa: F821
+        logger.debug("MultiJoin::insert_reference %s.%s = %s",
+                     model, self.name, value)
         referred_attribute = model.__getattribute__(self.name)
-        if value.id not in [r.id for r in referred_attribute if self._is_value_model(r)]:
+        referred_ids = [r.id for r in referred_attribute
+                        if self._is_value_model(r)]
+        if value.id not in referred_ids:
             referred_attribute.append(value)
 
-    def on_save(self, model: 'base_model.Model'):
+    def on_save(self, model: 'base_model.Model'):  # noqa: F821
         logger.debug("MultiJoin::on_save %s %s", self.name, model.id)
         ret = []
         values = model.__getattribute__(self.name)
-        for value in [v for v in values if v and hasattr(v, 'id') and v.id is None]:
+        initialized_values = [v for v in values
+                              if v and hasattr(v, 'id') and v.id is None]
+        for value in initialized_values:
             ret.append(value.save())
         if len(ret):
             return ret

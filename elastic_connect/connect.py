@@ -2,8 +2,7 @@ from collections import UserList
 from .namespace import _namespaces
 
 
-es_conf = {'_default': {'es_conf': None}
-          }
+es_conf = {'_default': {'es_conf': None}}
 
 
 def get_es():
@@ -38,16 +37,19 @@ class Result(UserList):
 
     def search_after(self):
         """
-        Utilizes the Elasticsearch search_after capability to perform some real-time scrolling through the results.
-        Uses the parameters of the search that generated this result to perform another search, with the last models
-        order values as search_after values.
+        Utilizes the Elasticsearch search_after capability to perform
+        some real-time scrolling through the results. Uses the
+        parameters of the search that generated this result to perform
+        another search, with the last models order values as
+        search_after values.
 
         :example:
 
         .. code-block:: python
 
             found = models.find_by(website='www.zive.cz', size=10)
-            # first 10 results (sorted by _uid in ascending order - the default) are returned
+            # first 10 results (sorted by _uid in ascending order - the
+            # default) are returned
 
             found.search_after()
             # further 10 results (sorted by _uid) are returned
@@ -55,8 +57,8 @@ class Result(UserList):
         :return: further results
         """
         self.pass_args['body']['search_after'] = self.search_after_values
-        return getattr(self.model.get_es_connection(), self.method)(**self.pass_args)
-
+        return getattr(self.model.get_es_connection(),
+                       self.method)(**self.pass_args)
 
 
 class DocTypeConnection(object):
@@ -68,15 +70,20 @@ class DocTypeConnection(object):
     deprecated - ES < 6 supports multiple doc_types in a single index.
     """
 
-    # TODO: sanitize input by https://stackoverflow.com/questions/16205341/symbols-in-query-string-for-elasticsearch
+    # TODO: sanitize input by
+    # https://stackoverflow.com/questions/16205341/symbols-in-query-string-for-elasticsearch  # noqa E501
 
     def __init__(self, model, es_namespace, index, doc_type, default_args={}):
         """
-        :param model: class of the model for which the connection is created
-        :param es_namespace: es_namespace in which the connection is created
+        :param model: class of the model for which the connection is
+            created
+        :param es_namespace: es_namespace in which the connection is
+            created
         :param index: name of the index
-        :param doc_type: name of the doc type - for future compliance should match the index name
-        :param default_args: a dict of default args to pass to the underlying elasticsearch connections
+        :param doc_type: name of the doc type - for future compliance
+            should match the index name
+        :param default_args: a dict of default args to pass to the
+            underlying elasticsearch connections
         """
         self.es_namespace = es_namespace
         self.es = es_namespace.get_es()
@@ -92,8 +99,9 @@ class DocTypeConnection(object):
 
     def __getattr__(self, name):
         """
-        All methods are redirected to the underlying elasticsearch connection.
-        Search and get methods return Result on success, otherwise the JSON from elasticseach is returned.
+        All methods are redirected to the underlying elasticsearch
+        connection. Search and get methods return Result on success,
+        otherwise the JSON from elasticseach is returned.
         """
 
         def helper(**kwargs):
@@ -102,7 +110,8 @@ class DocTypeConnection(object):
             pass_args.update(kwargs)
             data = es_func(**pass_args)
             if 'hits' in data or name == "get":
-                result = Result(data, self.model, method=name, pass_args=pass_args)
+                result = Result(data, self.model, method=name,
+                                pass_args=pass_args)
                 if name == "get" and len(result) == 1:
                     return result[0]
                 return result
@@ -118,7 +127,8 @@ def create_mappings(model_classes):
     Creates index mapping in Elasticsearch for each model passed in.
     Doesn't update existing mappings.
 
-    :param model_classes: a list of classes for which indices are created
+    :param model_classes: a list of classes for which indices are
+        created
     :return: returns the names of indices which were actually created
     """
 
@@ -133,8 +143,10 @@ def delete_indices(indices):
     """
     Delete all of the provided indices. Blocks untill they are deleted.
 
-    Unlike the create_mappings and other operations, index deletes in elastic_connect *don't* perform any index_name
-    prefix magic. All index deletions in elastic_connect are attempted with the name provided 'as is'.
+    Unlike the create_mappings and other operations, index deletes in
+    elastic_connect *don't* perform any index_name prefix magic. All
+    index deletions in elastic_connect are attempted with the name
+    provided 'as is'.
 
     :param indices: names of indices to be deleted
     :return: None
@@ -144,10 +156,12 @@ def delete_indices(indices):
 
 def connect(conf, index_prefix=''):
     """
-    Establish a connection to elasticsearch using the _default namespace.
+    Establish a connection to elasticsearch using the _default
+    namespace.
 
     :param conf: The parameters of the _default namespace
-    :param index_prefix: prefix to be used for all indices using this connection. Default = ''
+    :param index_prefix: prefix to be used for all indices using this
+        connection. Default = ''
     :return: instance of the _default Namespace
     """
     _namespaces['_default'].es = None
