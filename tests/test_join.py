@@ -138,7 +138,7 @@ class Key(Model):
 
 
 @pytest.fixture(scope="module")
-def fix_parent_child():
+def fix_parent_child(request):
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[Parent, Child])
 
@@ -148,7 +148,7 @@ def fix_parent_child():
 
     yield
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
     elastic_connect.delete_indices(indices=indices)
@@ -157,7 +157,7 @@ def fix_parent_child():
 
 
 @pytest.fixture(scope="module")
-def fix_one_many():
+def fix_one_many(request):
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[One, Many])
     assert es.indices.exists(index=One.get_index())
@@ -165,7 +165,7 @@ def fix_one_many():
 
     yield
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
     elastic_connect.delete_indices(indices=indices)
@@ -173,7 +173,7 @@ def fix_one_many():
     assert not es.indices.exists(index=Many.get_index())
 
 @pytest.fixture(scope="module")
-def fix_one_many_with_reference():
+def fix_one_many_with_reference(request):
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[OneWithReference, ManyWithReference])
     assert es.indices.exists(index=OneWithReference.get_index())
@@ -181,7 +181,7 @@ def fix_one_many_with_reference():
 
     yield
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
     elastic_connect.delete_indices(indices=indices)
@@ -190,7 +190,7 @@ def fix_one_many_with_reference():
 
 
 @pytest.fixture(scope="module")
-def fix_id_one_many_with_reference():
+def fix_id_one_many_with_reference(request):
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[IdOneWithReference, IdManyWithReference])
     assert es.indices.exists(index=IdOneWithReference.get_index())
@@ -198,7 +198,7 @@ def fix_id_one_many_with_reference():
 
     yield
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
     elastic_connect.delete_indices(indices=indices)
@@ -207,7 +207,7 @@ def fix_id_one_many_with_reference():
 
 
 @pytest.fixture(scope="module")
-def fix_user_key():
+def fix_user_key(request):
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[User, Key])
 
@@ -217,7 +217,7 @@ def fix_user_key():
 
     yield
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
     elastic_connect.delete_indices(indices=indices)

@@ -16,10 +16,28 @@ def pytest_addoption(parser):
 
 def pytest_runtest_setup(item):
     """
-    Skip tests if they are marked as namespace and --namespace is not given
+    Skip tests based on command line options
     """
-    if getattr(item.obj, 'namespace', None) and not pytest.config.getvalue('--namespace'):
+
+    # Skip tests if they are marked as namespace and --namespace is not given
+    has_marker = [x for x in item.iter_markers(name='namespace')]
+    if has_marker and not item.config.getvalue('--namespace'):
         pytest.skip('Not running namespace tests')
+
+    # Skip tests if they are marked as skip_on_index_noclean and --index-noclean is given
+    has_marker = [x for x in item.iter_markers(name='skip_on_index_noclean')]
+    if has_marker and item.config.getvalue('--index-noclean'):
+        pytest.skip('Not cleaning indices')
+
+
+def pytest_configure(config):
+    """
+    Register additional marker for namespaces testing
+    """
+    config.addinivalue_line("markers",
+        "namespace: Tests for two namespaces")
+    config.addinivalue_line("markers",
+        "skip_on_index_noclean: Skip on not cleaning indices")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -31,11 +49,11 @@ def prefix_indices(request):
     So with the default option a model which uses index ``admin_users`` in production will use index
     ``testadmin_users`` in the tests.
     """
-    logger.warning("Prefixing all indices with: '%s'", (pytest.config.getoption("--es-prefix") + '_'))
-    elastic_connect.namespace._global_prefix = pytest.config.getoption("--es-prefix") + '_'
+    logger.warning("Prefixing all indices with: '%s'", (request.config.getoption("--es-prefix") + '_'))
+    elastic_connect.namespace._global_prefix = request.config.getoption("--es-prefix") + '_'
 
 @pytest.fixture(scope="session", autouse=True)
-def fix_es():
+def fix_es(request):
     """
     @pytest.fixture(scope="session", autouse=True)
 
@@ -43,8 +61,8 @@ def fix_es():
     Waits for all namespaces to be ready.
     :yield: None
     """
-    conf = {'host': pytest.config.getoption("--es-host"),
-            'port': pytest.config.getoption("--es-port"),
+    conf = {'host': request.config.getoption("--es-host"),
+            'port': request.config.getoption("--es-port"),
             }
     elastic_connect._namespaces['_default'].es_conf = [conf]
     for namespace in elastic_connect._namespaces.values():
@@ -54,7 +72,7 @@ def fix_es():
     yield
 
 @pytest.fixture(scope="module")
-def fix_index(model_classes):
+def fix_index(request, model_classes):
     """
     @pytest.fixture(scope="module")
 
@@ -71,7 +89,7 @@ def fix_index(model_classes):
 
     yield
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         logger.warning("not cleaning indices")
         return
 

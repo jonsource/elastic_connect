@@ -6,7 +6,7 @@ import elasticsearch.exceptions
 
 
 @pytest.fixture(scope="module")
-def fix_model_one_save():
+def fix_model_one_save(request):
 
     class OneSave(Model):
         __slots__ = ('value', )
@@ -25,7 +25,7 @@ def fix_model_one_save():
 
     yield OneSave
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
 
@@ -34,7 +34,7 @@ def fix_model_one_save():
 
 
 @pytest.fixture(scope="module")
-def fix_model_one_id_save():
+def fix_model_one_id_save(request):
 
     class OneIdSave(Model):
         __slots__ = ('value', )
@@ -56,7 +56,7 @@ def fix_model_one_id_save():
 
     yield OneIdSave
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
 
@@ -65,7 +65,7 @@ def fix_model_one_id_save():
 
 
 @pytest.fixture(scope="module")
-def fix_model_two_save():
+def fix_model_two_save(request):
 
     class TwoSave(Model):
         __slots__ = ('value', 'subvalue')
@@ -85,7 +85,7 @@ def fix_model_two_save():
 
     yield TwoSave
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
 

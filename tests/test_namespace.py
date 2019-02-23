@@ -47,7 +47,7 @@ def test_two_namespaces_prefix(second_namespace):
 
 
 @pytest.fixture(scope="module")
-def fix_model_one_save():
+def fix_model_one_save(request):
 
     default_namespace = elastic_connect._namespaces['_default']
 
@@ -67,7 +67,7 @@ def fix_model_one_save():
 
     yield OneSave
 
-    if pytest.config.getoption("--index-noclean"):
+    if request.config.getoption("--index-noclean"):
         print("** not cleaning")
         return
 
