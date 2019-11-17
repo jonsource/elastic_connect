@@ -248,8 +248,16 @@ class LooseJoin(Join):
 
 
 class SingleJoinLoose(SingleJoin, LooseJoin):
-    pass
+    def lazy_load(self, value):
+        target = self.get_target()
+        print("\nlazy_load", self, value, target)
+        find_by = {self.target_property: value.id}
+        return target.find_by(**find_by)[0]
 
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
-    pass
+    def lazy_load(self, value):
+        target = self.get_target()
+        print("\nlazy_load", self, value, target)
+        find_by = {self.target_property: value.id}
+        return target.find_by(**find_by)

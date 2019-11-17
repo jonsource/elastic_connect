@@ -119,8 +119,8 @@ class User(Model):
     _mapping = {
         'id': Keyword(name='id'),
         'value': Keyword(name='value'),
-        'key': SingleJoinLoose(name='key', source='test_join.User', target='test_join.Key'),
-        'keys': MultiJoinLoose(name='keys', source='test_join.User', target='test_join.Key'),
+        'key': SingleJoinLoose(name='key', source='test_join.User', target='test_join.Key:user'),
+        'keys': MultiJoinLoose(name='keys', source='test_join.User', target='test_join.Key:user'),
     }
 
 
@@ -480,28 +480,69 @@ def test_loose_join_mapping():
 def test_single_join_loose(fix_user_key):
     u = User.create(value='pepa')  # type: User
     k1 = Key.create(value='111', user=u)  # type: Key
-    k2 = Key.create(value='222', user=u)  # type: Key
-
-    u.key = k2
-    u.keys = [k1, k2]
+    
+    u.key = k1
     u.save()
-    assert u.key.id == k2.id
+    assert u.key.id == k1.id
 
     User.refresh()
     Key.refresh()
 
     lu = User.get(u.id)  # type: User
     lu._lazy_load()
-    assert lu.key is None
-    assert len(lu.keys) == 0
+    assert lu.key.id == k1.id
 
-    lk = Key.get(k1.id)  # type: Key
-    lk._lazy_load()
-    assert lk.user.id == u.id
 
-    lk = Key.get(k2.id)  # type: Key
-    lk._lazy_load()
-    assert lk.user.id == u.id
+def test_single_join_loose_implicit_reference(fix_user_key):
+    u = User.create(value='pepa', key=Key(value='111'))  # type: User
+        
+    u.save()
+    assert u.key.id
+
+    User.refresh()
+    Key.refresh()
+
+    lu = User.get(u.id)  # type: User
+    lu._lazy_load()
+    assert lu.key.id == u.key.id
+
+
+def test_multi_join_loose(fix_user_key):
+    u = User.create(value='pepa')  # type: User
+    k1 = Key.create(value='111', user=u)  # type: Key
+    k2 = Key.create(value='222', user=u)  # type: Key
+
+    u.keys = [k1, k2]
+    u.save()
+    assert u.keys[0].id == k1.id
+    assert u.keys[1].id == k2.id
+
+    User.refresh()
+    Key.refresh()
+
+    lu = User.get(u.id)  # type: User
+    lu._lazy_load()
+    assert lu.keys[0].id == k1.id
+    assert lu.keys[1].id == k2.id
+    assert len(lu.keys) == 2
+
+
+def test_multi_join_loose_implicit_reference(fix_user_key):
+    keys = [Key(value='111'), Key(value='222')]
+    u = User.create(value='pepa', keys=keys)  # type: User
+
+    u.save()
+    assert u.keys[0].id
+    assert u.keys[1].id
+
+    User.refresh()
+    Key.refresh()
+
+    lu = User.get(u.id)  # type: User
+    lu._lazy_load()
+    assert lu.keys[0].id == u.keys[0].id
+    assert lu.keys[1].id == u.keys[1].id
+    assert len(lu.keys) == 2
 
 
 def test_multi_join_reference_double_load(fix_one_many_with_reference):
