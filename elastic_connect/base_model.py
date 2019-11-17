@@ -55,8 +55,8 @@ class Model(object):
     @classmethod
     def get_index(cls):
         """
-        :deprecated: Returns the name of the index this model is stored
-            in, includin any prefixes defined globally or in namespace.
+        Returns the name of the index this model is stored
+            in, including any prefixes defined globally or in namespace.
 
             In ES >= 6 each model type needs it's own index.
 
@@ -64,6 +64,19 @@ class Model(object):
         """
 
         return cls._es_namespace.index_prefix + cls._meta['_doc_type']
+
+    @classmethod
+    def get_doctype(cls):
+        """
+        :deprecated: Returns the name of the index this model is stored
+            in, including any prefixes defined globally or in namespace.
+
+            In ES >= 6 each model type needs it's own index.
+
+            ES < 6 supports multiple doc_types in a single index.
+        """
+
+        return cls.get_index()
 
     def _compute_id(self):
         """
@@ -92,7 +105,7 @@ class Model(object):
             cls._es_connection = elastic_connect.DocTypeConnection(
                 model=cls, es_namespace=cls._es_namespace,
                 index=cls.get_index(),
-                doc_type=cls._meta['_doc_type'])
+                doc_type=cls.get_doctype())
             logger.debug("connection index name %s",
                          cls._es_connection.index_name)
         else:
@@ -247,19 +260,54 @@ class Model(object):
         :param id: id of the model to get
         :return: returns an instance of elastic_connect.connect.Result
         """
-
-        ret = cls.get_es_connection().get(id=id)
-        return ret
+        if isinstance(id, str):
+            print("getting single documents %s" % id)
+            ret = cls.get_es_connection().get(id=id)
+            return ret
+        else:
+            logger.debug("getting multiple documents %s" % id)
+            if not id:
+                return []
+            print("getting multiple document %s" % id)
+            ret = cls.get_es_connection().mget(body={'ids':id})
+            return ret
+        
+        
 
     @classmethod
-    def all(cls, size=100):
+    def all(cls, size=100, sort=None):
         """
         Get all models from Elasticsearch.
         :param size: max number of hits to return. Default = 100.
+        :param sort: sorting of the result as provided by prepare_sort(sort)
         :return: returns an instance of elastic_connect.connect.Result
         """
+        sort = cls.prepare_sort(sort)
 
-        return cls.get_es_connection().search(size=size)
+        return cls.get_es_connection().search(sort=sort, size=size)
+
+    @classmethod
+    def prepare_sort(cls, sort=None):
+        """
+        Prepares default sorting for model. Default is {"_uid": "asc"},
+        default is also appended as last resort to all sorts that don't
+        use _uid. Sorting by _id is not supported by elasticsearch, use
+        _uid (_doc_type + '#' + _id) instead.
+        Important: _uid is not incremental in elasticsearch, it's here
+        just to get constistent results.
+        :param sort: array of {property: "asc|desc"} values
+        :return: returns the input sort with appended {"_uid": "asc"}
+        """
+        if not sort:
+            sort = [{"_uid": "asc"}]
+            return sort
+
+        for s in sort:
+            if '_uid' in s:
+                return sort
+
+        sort.append({"_uid": "asc"})
+        return sort
 
     @classmethod
     def find_by(cls,
@@ -295,10 +343,7 @@ class Model(object):
 
         :param size: max number of hits to return. Default = 100.
         :param kw: attributes of the model by which to search
-        :param sort: sorting of the result, default is {"_uid": "asc"},
-            default is also appended as last resort to all
-            sorts that don't use _uid. Sorting by _id is not supported
-            by default, use _uid (_doc_type + '#' + _id) instead.
+        :param sort: sorting of the result as provided by prepare_sort(sort)
         :param search_after: searches for results 'after' the value(s)
             supplied, preferably used with
             elastic_connect.connect.Result.search_after_values
@@ -307,22 +352,10 @@ class Model(object):
         :return: returns an instance of elastic_connect.connect.Result
         """
 
-        def prepare_sort(sort):
-            if not sort:
-                sort = [{"_uid": "asc"}]
-                return sort
-
-            for s in sort:
-                if '_uid' in s:
-                    return sort
-
-            sort.append({"_uid": "asc"})
-            return sort
-
         if not query:
             query = kw
 
-        sort = prepare_sort(sort)
+        sort = cls.prepare_sort(sort)
 
         if isinstance(query, str):
             _query = {
@@ -430,7 +463,7 @@ class Model(object):
         for name, type in cls._mapping.items():
             es_type = type.get_es_type()
             if name != 'id' and es_type:
-                mapping[name] = {"type": es_type}
+                mapping[name] = es_type
 
         logger.debug("mapping %s", mapping)
         return mapping

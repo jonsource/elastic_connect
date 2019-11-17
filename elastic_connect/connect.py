@@ -22,7 +22,10 @@ class Result(UserList):
         self.model = model
         ret = []
         try:
-            self.hits = result['hits']['hits']
+            if 'hits' in result:
+                self.hits = result['hits']['hits']
+            else:
+                self.hits = result['docs']
         except KeyError:
             self.hits = [result]
 
@@ -87,7 +90,7 @@ class DocTypeConnection(object):
         """
         self.es_namespace = es_namespace
         self.es = es_namespace.get_es()
-        self.index_name = es_namespace.index_prefix + doc_type
+        self.index_name = index
         self.doc_type = doc_type
         self.default_args = default_args
         self.model = model
@@ -109,7 +112,7 @@ class DocTypeConnection(object):
             pass_args = self.get_default_args().copy()
             pass_args.update(kwargs)
             data = es_func(**pass_args)
-            if 'hits' in data or name == "get":
+            if 'hits' in data or 'docs' in data or name == "get":
                 result = Result(data, self.model, method=name,
                                 pass_args=pass_args)
                 if name == "get" and len(result) == 1:

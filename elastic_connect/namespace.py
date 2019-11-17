@@ -186,22 +186,23 @@ class Namespace(object):
             try:
                 self.get_es().indices.create(index=index, body=body)
                 logger.info("Index %s created", (index,))
+                logger.debug("with params %s", (body,))
             except elasticsearch.exceptions.RequestError as e:
                 logger.info("Index %s already exists!", (index,))
                 if e.error != 'index_already_exists_exception':
                     raise e
 
         mappings = {}
+        created = []
         for model_class in model_classes:
-            mappings[model_class.get_index()] = {
+            index_name = model_class.get_index()
+            doctype_name = model_class.get_doctype()
+            mappings[doctype_name] = {
                 "properties": model_class.get_es_mapping()
                 }
-
-        created = []
-
-        for name in mappings.keys():
-            safe_create(index=name, body={"mappings": {name: mappings[name]}})
-            created.append(name)
+            safe_create(index=index_name,
+                body={"mappings": {index_name: mappings[doctype_name]}})
+            created.append(index_name)
 
         return created
 

@@ -32,7 +32,7 @@ class BaseDataType(ABC):
         return True
 
     def _get_es_type(self):
-        return self.__class__.__name__.lower()
+        return {'type': self.__class__.__name__.lower()}
 
     def get_es_type(self):
         return self._has_es_type() and self._get_es_type()
@@ -73,3 +73,29 @@ class Date(BaseDataType):
 
     def serialize(self, value, depth, to_str, flat):
         return value.isoformat()
+
+
+class Boolean(BaseDataType):
+
+    def from_python(self, value):
+        return value == True
+
+
+class Integer(BaseDataType):
+    pass
+
+
+class Long(BaseDataType):
+    pass
+
+
+class ScaledFloat(BaseDataType):
+    
+    def __init__(self, name, scaling_factor):
+        self.name = name
+        self.scaling_factor = scaling_factor
+
+    def _get_es_type(self):
+        return {'type': 'scaled_float',
+                'scaling_factor': self.scaling_factor
+                }

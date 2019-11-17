@@ -103,7 +103,7 @@ def test_create(fix_model_one_save):
     cls.refresh()
 
     es = elastic_connect.get_es()
-    es_result = es.get(index=cls.get_index(), doc_type=cls._meta['_doc_type'], id=instance.id)
+    es_result = es.get(index=cls.get_index(), doc_type=cls.get_doctype(), id=instance.id)
 
     assert es_result['found'] == True
     assert es_result['_source'] == {'value': 'value1'}
@@ -113,16 +113,26 @@ def test_get(fix_model_one_save):
     cls = fix_model_one_save
 
     es = elastic_connect.get_es()
-    es_result = es.index(index=cls.get_index(), doc_type=cls._meta['_doc_type'], body={'value': 'pokus'}, refresh=True)
+    es_result = es.index(index=cls.get_index(), doc_type=cls.get_doctype(), body={'value': 'pokus'}, refresh=True)
 
     assert es_result['created'] == True
-
-    print(es_result)
 
     instance = cls.get(es_result['_id'])
 
     assert instance.id == es_result['_id']
     assert instance.value == 'pokus'
+
+
+def test_multi_get(fix_model_one_save):
+    cls = fix_model_one_save
+
+    es = elastic_connect.get_es()
+    es_result1 = es.index(index=cls.get_index(), doc_type=cls.get_doctype(), body={'value': 'pokus'}, refresh=False)
+    es_result2 = es.index(index=cls.get_index(), doc_type=cls.get_doctype(), body={'value': 'pokus2'}, refresh=True)
+    
+    instances = cls.get([es_result1['_id'], es_result2['_id']])
+
+    print(instances)
 
 
 def test_save(fix_model_one_save):
@@ -153,7 +163,7 @@ def test_create_with_id(fix_model_one_save):
     cls.refresh()
 
     es = elastic_connect.get_es()
-    es_result = es.get(index=cls.get_index(), doc_type=cls._meta['_doc_type'], id=instance.id)
+    es_result = es.get(index=cls.get_index(), doc_type=cls.get_doctype(), id=instance.id)
 
     assert es_result['found'] is True
     assert es_result['_source'] == {'value': 'value1'}
@@ -336,7 +346,7 @@ def test_find_by_search_after_default_sort(fix_model_two_save):
 
     for i in range(max):
         instance.append(cls.create(value='value9', subvalue='xx'+str(i)))  # type: TwoSave
-        cls.refresh()
+    cls.refresh()
 
     # _uids are generated sequentialy, but with a special kind of sorting different from ASCII string sort order!!
     instance = sorted(instance, key=lambda a: a.id)
@@ -358,7 +368,7 @@ def test_find_by_search_after_default_sort(fix_model_two_save):
         assert len(found) == 1
         assert found[0].subvalue == instance[i].subvalue
         assert found[0].id == instance[i].id
-        assert ('model_save_two#'+found[0].id) == found.search_after_values[0]
+        assert (cls.get_doctype() + '#' +found[0].id) == found.search_after_values[0]
 
 
 def test_find_by_search_after_custom_sort(fix_model_two_save):
@@ -369,7 +379,7 @@ def test_find_by_search_after_custom_sort(fix_model_two_save):
 
     for i in range(max):
         instance.append(cls.create(value='value10', subvalue='xvl' + str(i)))  # type: TwoSave
-        cls.refresh()
+    cls.refresh()
 
     # _uids are generated sequentialy, but with a special kind of sorting different from ASCII string sort order!!
     instance = sorted(instance, key=lambda a: a.id, reverse=True)
@@ -391,7 +401,7 @@ def test_find_by_search_after_custom_sort(fix_model_two_save):
         assert len(found) == 1
         assert found[0].subvalue == instance[i].subvalue
         assert found[0].id == instance[i].id
-        assert ('model_save_two#' + found[0].id) == found.search_after_values[0]
+        assert (cls.get_doctype() + '#' + found[0].id) == found.search_after_values[0]
 
 
 def test_find_by_search_after_default_sort_using_result(fix_model_two_save):
@@ -403,7 +413,7 @@ def test_find_by_search_after_default_sort_using_result(fix_model_two_save):
 
     for i in range(max):
         instance.append(cls.create(value='value11', subvalue='sxvl' + str(i)))  # type: TwoSave
-        cls.refresh()
+    cls.refresh()
 
     # _uids are generated sequentialy, but with a special kind of sorting different from ASCII string sort order!!
     instance = sorted(instance, key=lambda a: a.id)
@@ -425,7 +435,7 @@ def test_find_by_search_after_default_sort_using_result(fix_model_two_save):
         assert len(found) == 1
         assert found[0].subvalue == instance[i].subvalue
         assert found[0].id == instance[i].id
-        assert ('model_save_two#' + found[0].id) == found.search_after_values[0]
+        assert (cls.get_doctype() + '#' + found[0].id) == found.search_after_values[0]
 
 
 def test_find_by_search_after_custom_value(fix_model_two_save):
@@ -452,9 +462,9 @@ def test_find_by_search_after_custom_value(fix_model_two_save):
     found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', ''])
     assert len(found2) == 4
 
-    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', 'model_save_two#'+instance3.id])
+    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', cls.get_doctype() + '#'+instance3.id])
     assert len(found2) == 3
-    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', 'model_save_two#' + instance4.id])
+    found2 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['3', cls.get_doctype() + '#' + instance4.id])
     assert len(found2) == 2
 
     found3 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['2', ''])

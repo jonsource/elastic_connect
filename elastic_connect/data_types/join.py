@@ -66,7 +66,7 @@ class Join(BaseDataType):
         return self.source
 
     def _get_es_type(self):
-        return 'keyword'
+        return {'type': 'keyword'}
 
     def insert_reference(self,
                          value: 'base_model.Model',   # noqa: F821
@@ -172,7 +172,7 @@ class MultiJoin(Join):
             value = [v.id for v in model.__getattribute__(self.name)]
         except AttributeError:
             value = model.__getattribute__(self.name)
-        return [self.get_target().get(val) for val in value]
+        return self.get_target().get(value)
 
     def serialize(self,
                   value: (str, 'base_model.Model'),  # noqa: F821

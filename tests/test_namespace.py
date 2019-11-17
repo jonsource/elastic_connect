@@ -17,19 +17,55 @@ def override_default_namespace():
     default._index_prefix = old_prefix
 
 
-@pytest.mark.namespace
-def test_default_namespace_prefix():
+def test_default_namespace_prefix(request):
 
-    class DnpModel(elastic_connect.Model):
+    class NamespacedModel(Model):
+        __slots__ = ('id', 'value')
+        
+        _mapping = {
+            'id': Keyword(name='id'),
+            'value': Keyword(name='value'),
+        }
+    
+        _meta = {
+            '_doc_type': 'namespaced_model',
+        }
         pass
 
-    assert DnpModel.get_index() == 'test_model'
+    assert NamespacedModel.get_index() == 'test_namespaced_model'
+
+    namespace = NamespacedModel._es_namespace
+    indices = namespace.create_mappings(model_classes=[NamespacedModel])
+        
+    instance = NamespacedModel.create(value='one')
+    assert instance.id
+    
+    es = elastic_connect.get_es()
+    es_result = es.indices.get(index=NamespacedModel.get_index())
+    print(es_result)
+    expected_mapping = {'test_namespaced_model': 
+                            {'properties': 
+                                {'value': 
+                                    {'type': 'keyword'}
+                                }
+                            }
+                        }
+    assert 'test_namespaced_model' in es_result
+    assert es_result['test_namespaced_model']['mappings'] == expected_mapping
+
+    if request.config.getoption("--index-noclean"):
+        print("** not cleaning")
+    else:
+        index_name = NamespacedModel.get_index()
+        namespace.delete_indices(indices=indices)
+        assert not namespace.get_es().indices.exists(index=index_name)
+
 
 
 @pytest.mark.namespace
 def test_default_namespace_prefix_override(override_default_namespace):
 
-    class DnpModel(elastic_connect.Model):
+    class DnpModel(Model):
         pass
 
     assert DnpModel.get_index() == 'test_namespace_test_model'
@@ -38,7 +74,7 @@ def test_default_namespace_prefix_override(override_default_namespace):
 @pytest.mark.namespace
 def test_two_namespaces_prefix(second_namespace):
 
-    class TnpModel(elastic_connect.Model):
+    class TnpModel(Model):
         pass
 
     second_TnpModel = second_namespace.register_model_class(TnpModel)
