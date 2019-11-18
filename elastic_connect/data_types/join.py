@@ -252,10 +252,15 @@ class SingleJoinLoose(SingleJoin, LooseJoin):
         target = self.get_target()
         print("\nlazy_load", self, value, target)
         find_by = {self.target_property: value.id}
-        return target.find_by(**find_by)[0]
-
+        try:
+            return target.find_by(**find_by, size=1)[0]
+        except IndexError as e:
+            return None
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
+    """
+    Important! Dosen't preserve order!
+    """
     def lazy_load(self, value):
         target = self.get_target()
         print("\nlazy_load", self, value, target)

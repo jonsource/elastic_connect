@@ -493,6 +493,19 @@ def test_single_join_loose(fix_user_key):
     assert lu.key.id == k1.id
 
 
+def test_single_join_loose_empty(fix_user_key):
+    u = User.create(value='pepa')  # type: User
+
+    u.save()
+    assert u.key is None
+
+    User.refresh()
+
+    lu = User.get(u.id)  # type: User
+    lu._lazy_load()
+    assert lu.key is None
+
+
 def test_single_join_loose_implicit_reference(fix_user_key):
     u = User.create(value='pepa', key=Key(value='111'))  # type: User
         
@@ -525,6 +538,20 @@ def test_multi_join_loose(fix_user_key):
     assert lu.keys[0].id == k1.id
     assert lu.keys[1].id == k2.id
     assert len(lu.keys) == 2
+
+
+def test_multi_join_loose_empty(fix_user_key):
+    u = User.create(value='pepa')  # type: User
+
+    u.save()
+    assert len(u.keys) == 0
+
+    User.refresh()
+    Key.refresh()
+
+    lu = User.get(u.id)  # type: User
+    lu._lazy_load()
+    assert len(lu.keys) == 0
 
 
 def test_multi_join_loose_implicit_reference(fix_user_key):
