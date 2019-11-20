@@ -249,20 +249,30 @@ class LooseJoin(Join):
 
 class SingleJoinLoose(SingleJoin, LooseJoin):
     def lazy_load(self, value):
+        if not self.target_property:
+            logger.debug("SingleJoinLoose::lazy_load %s of %s skipped, because of empty target_property" % (self.name, value))
+            return None
         target = self.get_target()
-        print("\nlazy_load", self, value, target)
+        print("\nlazy_load for attribute:", self, "\nmodel_instance:", value, "\ntarget:", target)
         find_by = {self.target_property: value.id}
         try:
-            return target.find_by(**find_by, size=1)[0]
+            ret = target.find_by(**find_by, size=1)[0]
         except IndexError as e:
-            return None
+            ret = None
+        print("\nlazy_load found:", ret)
+        return ret
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
     """
     Important! Dosen't preserve order!
     """
     def lazy_load(self, value):
+        if not self.target_property:
+            logger.debug("MultiJoinLoose::lazy_load %s of %s skipped, because of empty target_property" % (self.name, value))
+            return [];
         target = self.get_target()
-        print("\nlazy_load", self, value, target)
+        print("\nlazy_load for attribute:", self, "\nmodel_instance:", value, "\ntarget:", target)
         find_by = {self.target_property: value.id}
-        return target.find_by(**find_by)
+        ret = target.find_by(**find_by)
+        print("\nlazy_load found:", ret)
+        return ret
