@@ -282,12 +282,12 @@ class Model(object):
         :param sort: sorting of the result as provided by prepare_sort(sort)
         :return: returns an instance of elastic_connect.connect.Result
         """
-        sort = cls.prepare_sort(sort)
+        sort = cls.prepare_sort(sort, stringify=True)
 
         return cls.get_es_connection().search(sort=sort, size=size)
 
     @classmethod
-    def prepare_sort(cls, sort=None):
+    def prepare_sort(cls, sort=None, stringify=False):
         """
         Prepares default sorting for model. Default is {"_uid": "asc"},
         default is also appended as last resort to all sorts that don't
@@ -298,16 +298,28 @@ class Model(object):
         :param sort: array of {property: "asc|desc"} values
         :return: returns the input sort with appended {"_uid": "asc"}
         """
-        if not sort:
-            sort = [{"_uid": "asc"}]
-            return sort
 
-        for s in sort:
-            if '_uid' in s:
+        def prepare_sort_dict(sort):
+            if not sort:
+                sort = [{"_uid": "asc"}]
                 return sort
 
-        sort.append({"_uid": "asc"})
-        return sort
+            for s in sort:
+                if '_uid' in s:
+                    return sort
+
+            sort.append({"_uid": "asc"})
+            return sort
+
+        sort = prepare_sort_dict(sort)
+        if not stringify:
+            return sort
+
+        ret = []
+        for pair in sort:
+            for key, value in pair.items():
+                ret.append("%s:%s" % (key, value))
+        return ret
 
     @classmethod
     def find_by(cls,
