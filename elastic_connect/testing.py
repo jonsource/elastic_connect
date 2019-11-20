@@ -1,6 +1,7 @@
 import pytest
 import elastic_connect.namespace
 import logging
+import elasticsearch.exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,22 @@ def fix_es(request):
         namespace.wait_for_ready()
         logger.info(namespace.name + " ready!")
 
+    es = elastic_connect.get_es()
+    template = {
+                "template": "*",
+                    "settings": {
+                        "number_of_shards": 1,
+                        "number_of_replicas": 1
+                    }
+                }
+    es.indices.put_template(name="test_all", body=template, order=1)
+    logger.info("templates %s", es.indices.get_template(name='*'))
+
     yield
+
+    es.indices.delete_template(name="test_all")
+    with pytest.raises(elasticsearch.exceptions.NotFoundError):
+        logger.info("templates %s", es.indices.get_template(name='test_all'))
 
 
 @pytest.fixture(scope="module")

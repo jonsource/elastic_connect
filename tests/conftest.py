@@ -12,3 +12,18 @@ print(sys.path)
 import elastic_connect
 from elastic_connect.testing import *
 logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+@pytest.fixture(autouse=True)
+def fix_template(request):
+    es = elastic_connect.get_es()
+    template = {
+                "template": "*",
+                    "settings": {
+                        "number_of_shards": 1,
+                        "number_of_replicas": 1
+                    }
+                }
+    es.indices.put_template(name="all", body=template, order=1)
+    logger.info("templates %s", es.indices.get_template(name='*'))
