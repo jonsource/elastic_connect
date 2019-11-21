@@ -1,7 +1,7 @@
 import pytest
 from elastic_connect import Model
 import elastic_connect
-from elastic_connect.data_types import Keyword
+from elastic_connect.data_types import Keyword, Long
 import elasticsearch.exceptions
 
 
@@ -31,6 +31,35 @@ def fix_model_one_save(request):
 
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=OneSave.get_index())
+
+
+@pytest.fixture(scope="module")
+def fix_model_one_save_sort(request):
+
+    class OneSaveSort(Model):
+        __slots__ = ('value', 'order')
+
+        _meta = {
+            '_doc_type': 'model_save_one_sort'
+        }
+        _mapping = {
+            'id': Keyword(name='id'),
+            'value': Keyword(name='value'),
+            'order': Long(name='order')
+        }
+
+    es = elastic_connect.get_es()
+    indices = elastic_connect.create_mappings(model_classes=[OneSaveSort])
+    assert es.indices.exists(index=OneSaveSort.get_index())
+
+    yield OneSaveSort
+
+    if request.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
+
+    elastic_connect.delete_indices(indices=indices)
+    assert not es.indices.exists(index=OneSaveSort.get_index())
 
 
 @pytest.fixture(scope="module")
@@ -268,23 +297,51 @@ def test_find_by_simple_limit_size(fix_model_one_save):
 
 def test_find_by_simple_sort(fix_model_one_save):
     cls = fix_model_one_save
+    items = 100
 
-    instance1 = cls.create(value='value4')  # type: OneSave
-    instance2 = cls.create(value='value4')  # type: OneSave
-    instance3 = cls.create(value='value4')  # type: OneSave
+    instances = [cls.create(value='value4') for i in range(items)]
 
     cls.refresh()
 
     found1 = cls.find_by(value='value4')
-    assert len(found1) == 3
+    assert len(found1) == items
 
     found2 = cls.find_by(value='value4', sort=[{"_uid": "asc"}])
-    assert len(found2) == 3
-    assert found2[0].id < found2[1].id < found2[2].id
+    assert len(found2) == items
+    for i in range(items - 1):
+        assert found2[i].id < found2[i + 1].id
 
     found2 = cls.find_by(value='value4', sort=[{"_uid": "desc"}])
-    assert len(found2) == 3
-    assert found2[2].id < found2[1].id < found2[0].id
+    assert len(found2) == items
+    for i in range(items - 1):
+        assert found2[i].id > found2[i + 1].id
+
+
+def test_find_by_default_sort(fix_model_one_save_sort):
+    cls = fix_model_one_save_sort
+    items = 100
+
+    instances = [cls.create(value='value4', order=i) for i in range(items)]
+
+    cls.refresh()
+
+    found = cls.find_by(value='value4')
+    assert len(found) == items
+
+    ids_in_sequence = []
+    for i in range(items - 1):
+        assert found[i].order < found[i + 1].order
+        # save wehther also the ids of the two elements are in order
+        ids_in_sequence.append(found[i].id < found[i + 1].id)
+    
+    # In a big enough set of items some should be in sequence and some
+    # should not. Model.id (mapped to _uid in Elasticsearch) is not
+    # sequential, but in parts, it is. A set of 100 items should be
+    # big enough (with sufficient reserve) to illustrate this behavior
+    # consistently
+    assert False in ids_in_sequence
+    assert True in ids_in_sequence
+   
 
 
 def test_find_by_multi(fix_model_two_save):

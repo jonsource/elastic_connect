@@ -279,7 +279,8 @@ class Model(object):
         """
         Get all models from Elasticsearch.
         :param size: max number of hits to return. Default = 100.
-        :param sort: sorting of the result as provided by prepare_sort(sort)
+        :param sort: sorting of the result as provided by
+            prepare_sort(sort)
         :return: returns an instance of elastic_connect.connect.Result
         """
         sort = cls.prepare_sort(sort, stringify=True)
@@ -287,34 +288,48 @@ class Model(object):
         return cls.get_es_connection().search(sort=sort, size=size)
 
     @classmethod
+    def get_default_sort(cls):
+        """
+        Returns the default sort order, which is used by find_by() and
+        all() if no other sorting is explicitly provided in their call.
+        """
+        sort = []
+        if hasattr(cls, 'order'):
+            sort.append({'order': 'asc'})
+        sort.append({'_uid': 'asc'})
+        return sort
+
+    @classmethod
     def prepare_sort(cls, sort=None, stringify=False):
         """
-        Prepares default sorting for model. Default is {"_uid": "asc"},
-        default is also appended as last resort to all sorts that don't
-        use _uid. Sorting by _id is not supported by elasticsearch, use
-        _uid (_doc_type + '#' + _id) instead.
+        Prepares sorting for model. Defaults to get_default_sort,
+        {"_uid": "asc"} is also appended as last resort to all sorts
+        that don't use _uid. Sorting by _id is not supported by
+        elasticsearch, use _uid (_doc_type + '#' + _id) instead.
         Important: _uid is not incremental in elasticsearch, it's here
-        just to get constistent results.
+        just to get constistent results on the same dataset.
         :param sort: array of {property: "asc|desc"} values
+        :param stringify: default False: if the result should be
+            stringified for kw parameter, or left in the json format for
+            body of Elasticsearch query.
         :return: returns the input sort with appended {"_uid": "asc"}
         """
 
-        def prepare_sort_dict(sort):
+        def prepare_sort_array(sort):
             if not sort:
-                sort = [{"_uid": "asc"}]
-                return sort
+                return cls.get_default_sort()
 
             for s in sort:
                 if '_uid' in s:
                     return sort
 
-            sort.append({"_uid": "asc"})
+            sort.append({'_uid': 'asc'})
             return sort
 
-        sort = prepare_sort_dict(sort)
+        sort = prepare_sort_array(sort)
+        
         if not stringify:
             return sort
-
         ret = []
         for pair in sort:
             for key, value in pair.items():
@@ -355,7 +370,8 @@ class Model(object):
 
         :param size: max number of hits to return. Default = 100.
         :param kw: attributes of the model by which to search
-        :param sort: sorting of the result as provided by prepare_sort(sort)
+        :param sort: sorting of the result as provided by
+            prepare_sort(sort)
         :param search_after: searches for results 'after' the value(s)
             supplied, preferably used with
             elastic_connect.connect.Result.search_after_values
@@ -466,7 +482,8 @@ class Model(object):
     @classmethod
     def get_es_mapping(cls):
         """
-        Returns a dict representing the elastic search mapping for this model
+        Returns a dict representing the elastic search mapping for this
+        model
 
         :return: dict
         """
