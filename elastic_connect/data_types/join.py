@@ -248,31 +248,40 @@ class LooseJoin(Join):
 
 
 class SingleJoinLoose(SingleJoin, LooseJoin):
+
+    def __init__(self, name: str, source: str, target: str, do_lazy_load=False):
+        super().__init__(name=name, source=source, target=target)
+        self.do_lazy_load = do_lazy_load
+
     def lazy_load(self, value):
-        if not self.target_property:
-            logger.debug("SingleJoinLoose::lazy_load %s of %s skipped, because of empty target_property" % (self.name, value))
+        if not self.do_lazy_load:
+            logger.debug("SingleJoinLoose::lazy_load %s of %s skipped" % (self.name, value))
             return None
+
+        assert self.target_property
         target = self.get_target()
-        print("\nlazy_load for attribute:", self, "\nmodel_instance:", value, "\ntarget:", target)
         find_by = {self.target_property: value.id}
         try:
             ret = target.find_by(**find_by, size=1)[0]
         except IndexError as e:
             ret = None
-        print("\nlazy_load found:", ret)
         return ret
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
     """
     Important! Dosen't preserve order!
     """
+    def __init__(self, name: str, source: str, target: str, join_by=None, do_lazy_load=False):
+        super().__init__(name=name, source=source, target=target)
+        self.do_lazy_load = do_lazy_load
+
     def lazy_load(self, value):
-        if not self.target_property:
-            logger.debug("MultiJoinLoose::lazy_load %s of %s skipped, because of empty target_property" % (self.name, value))
+        if not self.do_lazy_load:
+            logger.debug("MultiJoinLoose::lazy_load %s of %s skipped" % (self.name, value))
             return [];
+
+        assert self.target_property
         target = self.get_target()
-        print("\nlazy_load for attribute:", self, "\nmodel_instance:", value, "\ntarget:", target)
         find_by = {self.target_property: value.id}
         ret = target.find_by(**find_by)
-        print("\nlazy_load found:", ret)
         return ret

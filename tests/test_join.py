@@ -110,11 +110,26 @@ class IdManyWithReference(Model):
         'one': SingleJoin(name='one', source='test_join.IdManyWithReference', target='test_join.IdOneWithReference:many'),
     }
 
+
 class User(Model):
     __slots__ = ('value', 'key', 'key_id', 'keys', 'keys_id')
 
     _meta = {
         '_doc_type': 'model_user'
+    }
+    _mapping = {
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+        'key': SingleJoinLoose(name='key', source='test_join.User', target='test_join.Key:user', do_lazy_load=True),
+        'keys': MultiJoinLoose(name='keys', source='test_join.User', target='test_join.Key:user', do_lazy_load=True),
+    }
+
+
+class UserNoLoad(Model):
+    __slots__ = ('value', 'key', 'key_id', 'keys', 'keys_id')
+
+    _meta = {
+        '_doc_type': 'model_user_no_load'
     }
     _mapping = {
         'id': Keyword(name='id'),
@@ -144,7 +159,6 @@ def fix_parent_child(request):
 
     assert es.indices.exists(index=Parent.get_index())
     assert es.indices.exists(index=Child.get_index())
-
 
     yield
 
@@ -209,11 +223,11 @@ def fix_id_one_many_with_reference(request):
 @pytest.fixture(scope="module")
 def fix_user_key(request):
     es = elastic_connect.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[User, Key])
+    indices = elastic_connect.create_mappings(model_classes=[User, UserNoLoad, Key])
 
     assert es.indices.exists(index=User.get_index())
+    assert es.indices.exists(index=UserNoLoad.get_index())
     assert es.indices.exists(index=Key.get_index())
-
 
     yield
 
@@ -222,6 +236,7 @@ def fix_user_key(request):
         return
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=User.get_index())
+    assert not es.indices.exists(index=UserNoLoad.get_index())
     assert not es.indices.exists(index=Key.get_index())
 
 
@@ -480,7 +495,7 @@ def test_loose_join_mapping():
 def test_single_join_loose(fix_user_key):
     u = User.create(value='pepa')  # type: User
     k1 = Key.create(value='111', user=u)  # type: Key
-    
+
     u.key = k1
     u.save()
     assert u.key.id == k1.id
@@ -504,6 +519,25 @@ def test_single_join_loose_empty(fix_user_key):
     lu = User.get(u.id)  # type: User
     lu._lazy_load()
     assert lu.key is None
+
+
+def test_single_join_loose_no_load(fix_user_key):
+    u = UserNoLoad.create(value='pepa')  # type: UserNoLoad
+    k1 = Key.create(value='111', user=u)  # type: Key
+    
+    u.key = k1
+    u.save()
+    assert u.key.id == k1.id
+
+    UserNoLoad.refresh()
+    Key.refresh()
+
+    lu = UserNoLoad.get(u.id)
+    lu._lazy_load()
+    assert lu.key is None
+
+    lk = Key.find_by(user=lu.id)
+    assert lk
 
 
 def test_single_join_loose_implicit_reference(fix_user_key):
@@ -535,9 +569,13 @@ def test_multi_join_loose(fix_user_key):
 
     lu = User.get(u.id)  # type: User
     lu._lazy_load()
-    assert lu.keys[0].id == k1.id
-    assert lu.keys[1].id == k2.id
     assert len(lu.keys) == 2
+    ids = [key.id for key in lu.keys]
+    # doesn't keep order
+    # assert lu.keys[0].id == u.keys[0].id
+    # assert lu.keys[1].id == u.keys[1].id
+    assert u.keys[0].id in ids
+    assert u.keys[1].id in ids
 
 
 def test_multi_join_loose_empty(fix_user_key):
@@ -554,6 +592,27 @@ def test_multi_join_loose_empty(fix_user_key):
     assert len(lu.keys) == 0
 
 
+def test_multi_join_loose_no_load(fix_user_key):
+    u = UserNoLoad.create(value='pepa')  # type: User
+    k1 = Key.create(value='111', user=u)  # type: Key
+    k2 = Key.create(value='222', user=u)  # type: Key
+
+    u.keys = [k1, k2]
+    u.save()
+    assert u.keys[0].id == k1.id
+    assert u.keys[1].id == k2.id
+
+    UserNoLoad.refresh()
+    Key.refresh()
+
+    lu = UserNoLoad.get(u.id)  # type: User
+    lu._lazy_load()
+    assert lu.keys == []
+
+    lk = Key.find_by(user=lu.id)
+    assert len(lk) == 2
+
+
 def test_multi_join_loose_implicit_reference(fix_user_key):
     keys = [Key(value='111'), Key(value='222')]
     u = User.create(value='pepa', keys=keys)  # type: User
@@ -567,9 +626,13 @@ def test_multi_join_loose_implicit_reference(fix_user_key):
 
     lu = User.get(u.id)  # type: User
     lu._lazy_load()
-    assert lu.keys[0].id == u.keys[0].id
-    assert lu.keys[1].id == u.keys[1].id
     assert len(lu.keys) == 2
+    ids = [key.id for key in lu.keys]
+    # doesn't keep order
+    # assert lu.keys[0].id == u.keys[0].id
+    # assert lu.keys[1].id == u.keys[1].id
+    assert u.keys[0].id in ids
+    assert u.keys[1].id in ids
 
 
 def test_multi_join_reference_double_load(fix_one_many_with_reference):
