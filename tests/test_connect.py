@@ -23,6 +23,7 @@ class Two(Model):
         'loose': SingleJoinLoose(name='loose', source='test_connect.Two', target='test_connect.One')
     }
 
+
 def test_create_indices():
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[One, Two])
@@ -43,6 +44,7 @@ def test_create_indices():
 
     expect_two = {'test_model_two': {'mappings': {'test_model_two': {}}}}
     assert es.indices.get_mapping(Two.get_index()) == expect_two
+
 
 @pytest.mark.skip_on_index_noclean
 def test_delete_indices(request):

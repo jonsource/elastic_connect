@@ -32,25 +32,31 @@ def test_default_namespace_prefix(request):
         }
         pass
 
+    expected_mapping = {'namespaced_model':
+                            {'properties':
+                                 {'value':
+                                      {'type': 'keyword'}
+                                  }
+                             }
+                        }
+    es = elastic_connect.get_es()
+
     assert NamespacedModel.get_index() == 'test_namespaced_model'
 
     namespace = NamespacedModel._es_namespace
     indices = namespace.create_mappings(model_classes=[NamespacedModel])
+    es_result = es.indices.get(index=NamespacedModel.get_index())
+    assert es_result['test_namespaced_model']['mappings'] == expected_mapping
         
     instance = NamespacedModel.create(value='one')
     assert instance.id
-    
-    es = elastic_connect.get_es()
     es_result = es.indices.get(index=NamespacedModel.get_index())
-    print(es_result)
-    expected_mapping = {'test_namespaced_model': 
-                            {'properties': 
-                                {'value': 
-                                    {'type': 'keyword'}
-                                }
-                            }
-                        }
+    assert es_result['test_namespaced_model']['mappings'] == expected_mapping
+
+    es_result = es.indices.get(index=NamespacedModel.get_index())
     assert 'test_namespaced_model' in es_result
+    from pprint import pprint
+    pprint(es_result)
     assert es_result['test_namespaced_model']['mappings'] == expected_mapping
 
     if request.config.getoption("--index-noclean"):

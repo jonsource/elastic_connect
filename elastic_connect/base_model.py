@@ -76,7 +76,7 @@ class Model(object):
             ES < 6 supports multiple doc_types in a single index.
         """
 
-        return cls.get_index()
+        return cls._meta['_doc_type']
 
     def _compute_id(self):
         """
