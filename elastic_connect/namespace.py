@@ -197,11 +197,11 @@ class Namespace(object):
         for model_class in model_classes:
             index_name = model_class.get_index()
             doctype_name = model_class.get_doctype()
-            mappings[doctype_name] = {
+            mapping = {
                 "properties": model_class.get_es_mapping()
                 }
             safe_create(index=index_name,
-                body={"mappings": {index_name: mappings[doctype_name]}})
+                body={"mappings": {doctype_name: mapping}})
             created.append(index_name)
 
         return created

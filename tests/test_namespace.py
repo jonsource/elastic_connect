@@ -17,20 +17,43 @@ def override_default_namespace():
     default._index_prefix = old_prefix
 
 
-def test_default_namespace_prefix(request):
+@pytest.fixture()
+def namespace_model_index(request):
+    namespace = NamespacedModel._es_namespace
+    indices = namespace.create_mappings(model_classes=[NamespacedModel])
 
-    class NamespacedModel(Model):
-        __slots__ = ('id', 'value')
-        
-        _mapping = {
-            'id': Keyword(name='id'),
-            'value': Keyword(name='value'),
-        }
+    yield
+
+    if request.config.getoption("--index-noclean"):
+        print("** not cleaning")
+    else:
+        namespace.delete_indices(indices=indices)
+        index_name = NamespacedModel.get_index()
+        assert not namespace.get_es().indices.exists(index=index_name)
+
+
+class NamespacedModel(Model):
+    __slots__ = ('id', 'value')
     
-        _meta = {
-            '_doc_type': 'namespaced_model',
-        }
-        pass
+    _mapping = {
+        'id': Keyword(name='id'),
+        'value': Keyword(name='value'),
+    }
+
+    _meta = {
+        '_doc_type': 'namespaced_model',
+    }
+    pass
+
+
+def test_default_namespace_mapping(request):
+    expected_mapping = {'value':{'type': 'keyword'}}
+
+    mapping = NamespacedModel.get_es_mapping()
+    assert mapping == expected_mapping
+
+
+def test_default_namespace_prefix(request, namespace_model_index):
 
     expected_mapping = {'namespaced_model':
                             {'properties':
@@ -43,29 +66,15 @@ def test_default_namespace_prefix(request):
 
     assert NamespacedModel.get_index() == 'test_namespaced_model'
 
-    namespace = NamespacedModel._es_namespace
-    indices = namespace.create_mappings(model_classes=[NamespacedModel])
     es_result = es.indices.get(index=NamespacedModel.get_index())
     assert es_result['test_namespaced_model']['mappings'] == expected_mapping
         
     instance = NamespacedModel.create(value='one')
     assert instance.id
-    es_result = es.indices.get(index=NamespacedModel.get_index())
-    assert es_result['test_namespaced_model']['mappings'] == expected_mapping
 
     es_result = es.indices.get(index=NamespacedModel.get_index())
     assert 'test_namespaced_model' in es_result
-    from pprint import pprint
-    pprint(es_result)
     assert es_result['test_namespaced_model']['mappings'] == expected_mapping
-
-    if request.config.getoption("--index-noclean"):
-        print("** not cleaning")
-    else:
-        index_name = NamespacedModel.get_index()
-        namespace.delete_indices(indices=indices)
-        assert not namespace.get_es().indices.exists(index=index_name)
-
 
 
 @pytest.mark.namespace

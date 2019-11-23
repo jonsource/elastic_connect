@@ -23,16 +23,29 @@ class Two(Model):
         'loose': SingleJoinLoose(name='loose', source='test_connect.Two', target='test_connect.One')
     }
 
-
-def test_create_indices():
+@pytest.fixture
+def mappings_one_two(request):
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[One, Two])
     assert len(indices) == 2
 
+    yield
+
+    if request.config.getoption("--index-noclean"):
+        print("** not cleaning")
+    else:
+        elastic_connect.delete_indices(indices=indices)
+        assert not es.indices.exists(index=One.get_index())
+        assert not es.indices.exists(index=Two.get_index())
+
+
+def test_create_indices(mappings_one_two):
+    es = elastic_connect.get_es()
+
     # explicitly check for proper index and doc_type names
     expect_one = {'test_model_one': {
                     'mappings': {
-                      'test_model_one': {
+                      'model_one': {
                         'properties': {
                           'single': {'type': 'keyword'}
                         }
@@ -42,7 +55,7 @@ def test_create_indices():
                 }
     assert es.indices.get_mapping(One.get_index()) == expect_one
 
-    expect_two = {'test_model_two': {'mappings': {'test_model_two': {}}}}
+    expect_two = {'test_model_two': {'mappings': {'model_two': {}}}}
     assert es.indices.get_mapping(Two.get_index()) == expect_two
 
 
