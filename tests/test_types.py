@@ -12,10 +12,10 @@ class KeywordModel(Model):
     _meta = {
         '_doc_type': 'type_keyword'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword()
+    )
 
 class DateModel(Model):
     __slots__ = ('value', )
@@ -23,10 +23,10 @@ class DateModel(Model):
     _meta = {
         '_doc_type': 'type_date'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Date(name='value')
-    }    
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Date()
+    )
 
 class BooleanModel(Model):
     __slots__ = ('value', )
@@ -34,10 +34,10 @@ class BooleanModel(Model):
     _meta = {
         '_doc_type': 'type_boolean'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Boolean(name='value')
-    } 
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Boolean()
+    )
 
 class LongModel(Model):
     __slots__ = ('value', )
@@ -45,10 +45,10 @@ class LongModel(Model):
     _meta = {
         '_doc_type': 'type_long'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Long(name='value')
-    } 
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Long()
+    )
 
 class ScaledFloatModel(Model):
     __slots__ = ('value', )
@@ -56,10 +56,10 @@ class ScaledFloatModel(Model):
     _meta = {
         '_doc_type': 'type_scaled_float'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': ScaledFloat(name='value', scaling_factor=10)
-    } 
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=ScaledFloat(scaling_factor=10)
+    )
 
 def prepare_es_for_model(cls):
 

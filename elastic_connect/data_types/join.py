@@ -4,11 +4,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class BadJoinTargetError(Exception):
+    pass
 
 class Join(BaseDataType):
     """Abstract parent of model joins - dependent child / parent models."""
 
-    def __init__(self, name: str, source: str, target: str):
+    def __init__(self, source: str, target: str, name: str = None):
 
         super().__init__(name=name)
 
@@ -51,8 +53,23 @@ class Join(BaseDataType):
         if not self.target:
             # get class from string - to avoid circular imports and class self
             # reference
-            self.target = self.class_for_name(self._target_module,
+            try:
+                self.target = self.class_for_name(self._target_module,
                                               self._target)
+            except ModuleNotFoundError:
+                message = ("Cannot find module %s, to get %s. "
+                           "Check the mapping of field '%s' "
+                           "in model %s.")
+                message = message % (self._target_module, self._target,
+                                     self.name, self._source)
+                raise BadJoinTargetError(message)
+            except AttributeError:
+                message = ("Cannot find class %s, in module %s. "
+                           "Check the mapping of field '%s' "
+                           "in model %s.")
+                message = message % (self._target, self._target_module,
+                                     self.name, self._source)
+                raise BadJoinTargetError(message)
         return self.target
 
     def get_source(self):
@@ -156,7 +173,7 @@ class SingleJoin(Join):
 class MultiJoin(Join):
     """1:N model join."""
 
-    def __init__(self, name: str, source: str, target: str, join_by=None):
+    def __init__(self, source: str, target: str, join_by=None, name: str = None):
         super(MultiJoin, self).__init__(name=name,
                                         source=source,
                                         target=target)
@@ -249,7 +266,7 @@ class LooseJoin(Join):
 
 class SingleJoinLoose(SingleJoin, LooseJoin):
 
-    def __init__(self, name: str, source: str, target: str, do_lazy_load=False):
+    def __init__(self, source: str, target: str, name: str = None, do_lazy_load=False):
         super().__init__(name=name, source=source, target=target)
         self.do_lazy_load = do_lazy_load
 
@@ -271,7 +288,7 @@ class MultiJoinLoose(MultiJoin, LooseJoin):
     """
     Important! Dosen't preserve order!
     """
-    def __init__(self, name: str, source: str, target: str, join_by=None, do_lazy_load=False):
+    def __init__(self, source: str, target: str, name: str = None, join_by=None, do_lazy_load=False):
         super().__init__(name=name, source=source, target=target)
         self.do_lazy_load = do_lazy_load
 

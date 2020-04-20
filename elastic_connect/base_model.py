@@ -1,6 +1,6 @@
 import elastic_connect
 import elastic_connect.data_types as data_types
-import elastic_connect.data_types.base
+import elastic_connect.data_types.base as data_types_base
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,9 @@ class Model(object):
     """
     Dictionary describing the model.
     property_name: elasticsearch data type or 'ref' for reference to
-    other model, defined by a join keys starting with _ are not saved in
-    elasticsearch
+    other model, defined by a join
+
+    keys starting with _ are not saved in elasticsearch
     """
 
     _meta = {
@@ -496,3 +497,23 @@ class Model(object):
 
         logger.debug("mapping %s", mapping)
         return mapping
+
+    @classmethod
+    def model_mapping(cls, **args):
+        return Mapping(**args)
+
+
+class Mapping(dict):
+    """
+    Class describing an Elasticsearch mapping.
+    """
+    def __init__(self, **kwargs):
+        for n, v in kwargs.items():
+            self.__setitem__(n, v)
+
+
+    def __setitem__(self, name, value):
+        if not isinstance(value, data_types_base.BaseDataType):
+            raise Exception("Only BaseDataType derived classes can be used in a Mapping")
+        value.name = name
+        return super().__setitem__(name, value)

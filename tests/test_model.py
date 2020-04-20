@@ -2,6 +2,7 @@ import pytest
 from elastic_connect import Model
 import elastic_connect
 from elastic_connect.data_types import Keyword, Long
+from elastic_connect.data_types.base import BaseDataType
 import elasticsearch.exceptions
 
 
@@ -547,3 +548,40 @@ def test_find_by_query(fix_model_two_save):
 
     found1 = cls.find_by(query="subvalue: *.zive.cz AND value: *50")
     assert len(found1) == 0
+
+from collections import UserDict
+
+def test_set_mapping():
+
+    class OldStyle(Model):
+        __slots__ = ('value', )
+
+        _meta = {
+            '_doc_type': 'model_save_one'
+        }
+        _mapping = {
+            'id': Keyword(name='id'),
+            'value': Keyword(name='value')
+        }
+
+    class NewStyle(Model):
+        __slots__ = ('value', )
+
+        _meta = {
+            '_doc_type': 'model_save_one'
+        }
+        
+        _mapping = Model.model_mapping(
+            id=Keyword(),
+            value=Keyword()
+        )
+
+    from pprint import pprint
+    pprint(OldStyle._mapping)
+
+    pprint(NewStyle._mapping)
+
+    assert len(OldStyle._mapping) == 2
+    assert len(NewStyle._mapping) == 2
+
+    assert OldStyle.get_es_mapping() == NewStyle.get_es_mapping()

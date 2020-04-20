@@ -35,10 +35,10 @@ def namespace_model_index(request):
 class NamespacedModel(Model):
     __slots__ = ('id', 'value')
     
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword()
+    )
 
     _meta = {
         '_doc_type': 'namespaced_model',

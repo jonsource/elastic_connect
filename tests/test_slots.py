@@ -11,20 +11,20 @@ class Slots(Model):
     _meta = {
         '_doc_type': 'model_child',
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword()
+    )
 
 
 class NoSlots(Model):
     _meta = {
         '_doc_type': 'model_child',
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword()
+    )
 
 
 @pytest.fixture(scope="module")

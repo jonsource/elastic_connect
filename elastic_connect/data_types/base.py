@@ -5,7 +5,7 @@ from dateutil import parser
 
 class BaseDataType(ABC):
 
-    def __init__(self, name):
+    def __init__(self, name=None):
         self.name = name
 
     def from_python(self, value):
@@ -91,7 +91,7 @@ class Long(BaseDataType):
 
 class ScaledFloat(BaseDataType):
     
-    def __init__(self, name, scaling_factor):
+    def __init__(self, scaling_factor, name=None):
         self.name = name
         self.scaling_factor = scaling_factor
 

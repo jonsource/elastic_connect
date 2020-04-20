@@ -8,20 +8,20 @@ class One(Model):
     _meta = {
         '_doc_type': 'model_one'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'single': SingleJoin(name='single', source='test_connect.One', target='test_connect.Two')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        single=SingleJoin(source='test_connect.One', target='test_connect.Two')
+    )
 
 
 class Two(Model):
     _meta = {
         '_doc_type': 'model_two'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'loose': SingleJoinLoose(name='loose', source='test_connect.Two', target='test_connect.One')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        loose=SingleJoinLoose(source='test_connect.Two', target='test_connect.One')
+    )
 
 @pytest.fixture
 def mappings_one_two(request):

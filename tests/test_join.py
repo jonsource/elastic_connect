@@ -10,11 +10,11 @@ class Parent(Model):
     _meta = {
         '_doc_type': 'model_parent'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'child': SingleJoin(name='child', source='test_join.Parent', target='test_join.Child')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        child=SingleJoin(source='test_join.Parent', target='test_join.Child')
+    )
 
 
 class Child(Model):
@@ -23,11 +23,11 @@ class Child(Model):
     _meta = {
         '_doc_type': 'model_child'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'parent': SingleJoin(name='parent', source='test_join.Child', target='test_join.Parent')
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        parent=SingleJoin(source='test_join.Child', target='test_join.Parent')
+    )
 
 
 class One(Model):
@@ -36,11 +36,11 @@ class One(Model):
     _meta = {
         '_doc_type': 'model_one'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'many': MultiJoin(name='many', source='test_join.One', target='test_join.Many'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        many=MultiJoin(source='test_join.One', target='test_join.Many'),
+    )
 
 
 class Many(Model):
@@ -49,11 +49,11 @@ class Many(Model):
     _meta = {
         '_doc_type': 'model_many'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'one': SingleJoin(name='one', source='test_join.Many', target='test_join.One'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        one=SingleJoin(source='test_join.Many', target='test_join.One'),
+    )
 
 
 class OneWithReference(Model):
@@ -62,11 +62,11 @@ class OneWithReference(Model):
     _meta = {
         '_doc_type': 'model_one_wr'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'many': MultiJoin(name='many', source='test_join.OneWithReference', target='test_join.ManyWithReference:one'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        many=MultiJoin(source='test_join.OneWithReference', target='test_join.ManyWithReference:one'),
+    )
 
 
 class ManyWithReference(Model):
@@ -75,11 +75,11 @@ class ManyWithReference(Model):
     _meta = {
         '_doc_type': 'model_many_wrid'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'one': SingleJoin(name='one', source='test_join.ManyWithReference', target='test_join.OneWithReference:many'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        one=SingleJoin(source='test_join.ManyWithReference', target='test_join.OneWithReference:many'),
+    )
 
 
 class IdOneWithReference(Model):
@@ -88,11 +88,11 @@ class IdOneWithReference(Model):
     _meta = {
         '_doc_type': 'model_one_wrid'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'many': MultiJoin(name='many', source='test_join.IdOneWithReference', target='test_join.IdManyWithReference:one'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        many=MultiJoin(source='test_join.IdOneWithReference', target='test_join.IdManyWithReference:one'),
+    )
 
     def _compute_id(self):
         return self.value
@@ -104,11 +104,11 @@ class IdManyWithReference(Model):
     _meta = {
         '_doc_type': 'model_many_wr'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'one': SingleJoin(name='one', source='test_join.IdManyWithReference', target='test_join.IdOneWithReference:many'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        one=SingleJoin(source='test_join.IdManyWithReference', target='test_join.IdOneWithReference:many'),
+    )
 
 
 class User(Model):
@@ -117,12 +117,12 @@ class User(Model):
     _meta = {
         '_doc_type': 'model_user'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'key': SingleJoinLoose(name='key', source='test_join.User', target='test_join.Key:user', do_lazy_load=True),
-        'keys': MultiJoinLoose(name='keys', source='test_join.User', target='test_join.Key:user', do_lazy_load=True),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        key=SingleJoinLoose(source='test_join.User', target='test_join.Key:user', do_lazy_load=True),
+        keys=MultiJoinLoose(source='test_join.User', target='test_join.Key:user', do_lazy_load=True),
+    )
 
 
 class UserNoLoad(Model):
@@ -131,12 +131,12 @@ class UserNoLoad(Model):
     _meta = {
         '_doc_type': 'model_user_no_load'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'key': SingleJoinLoose(name='key', source='test_join.User', target='test_join.Key:user'),
-        'keys': MultiJoinLoose(name='keys', source='test_join.User', target='test_join.Key:user'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        key=SingleJoinLoose(source='test_join.User', target='test_join.Key:user'),
+        keys=MultiJoinLoose(source='test_join.User', target='test_join.Key:user'),
+    )
 
 
 class Key(Model):
@@ -145,11 +145,11 @@ class Key(Model):
     _meta = {
         '_doc_type': 'model_key'
     }
-    _mapping = {
-        'id': Keyword(name='id'),
-        'value': Keyword(name='value'),
-        'user': SingleJoin(name='user', source='test_join.Key', target='test_join.User'),
-    }
+    _mapping = Model.model_mapping(
+        id=Keyword(),
+        value=Keyword(),
+        user=SingleJoin(source='test_join.Key', target='test_join.User'),
+    )
 
 
 @pytest.fixture(scope="module")
