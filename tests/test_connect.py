@@ -5,6 +5,8 @@ from elastic_connect.data_types import Keyword, SingleJoinLoose, SingleJoin
 
 
 class One(Model):
+    __slots__ = ('single', )
+
     _meta = {
         '_doc_type': 'model_one'
     }
@@ -15,6 +17,8 @@ class One(Model):
 
 
 class Two(Model):
+    __slots__ = ('loose', )
+
     _meta = {
         '_doc_type': 'model_two'
     }

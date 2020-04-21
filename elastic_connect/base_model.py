@@ -498,6 +498,19 @@ class Model(object):
 
     @classmethod
     def model_mapping(cls, **args):
+        """
+        Creates a Mapping with given parameters.
+
+        Automatically adds the id field as Keyword if not present
+
+        :param **args: field_name=data_type pairs describing the fields
+            of this model.
+
+        :return: Mapping
+        """
+        if 'id' not in args:
+            args['id'] = data_types.Keyword()
+
         return Mapping(**args)
 
 

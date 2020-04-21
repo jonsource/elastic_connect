@@ -15,10 +15,9 @@ def fix_model_one_save(request):
         _meta = {
             '_doc_type': 'model_save_one'
         }
-        _mapping = {
-            'id': Keyword(name='id'),
-            'value': Keyword(name='value')
-        }
+        _mapping = Model.model_mapping(
+            value=Keyword()
+        )
 
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[OneSave])
@@ -43,11 +42,11 @@ def fix_model_one_save_sort(request):
         _meta = {
             '_doc_type': 'model_save_one_sort'
         }
-        _mapping = {
-            'id': Keyword(name='id'),
-            'value': Keyword(name='value'),
-            'order': Long(name='order')
-        }
+
+        _mapping = Model.model_mapping(
+            value=Keyword(),
+            order=Long()
+        )
 
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[OneSaveSort])
@@ -72,10 +71,9 @@ def fix_model_one_id_save(request):
         _meta = {
             '_doc_type': 'model_save_one_id'
         }
-        _mapping = {
-            'id': Keyword(name='id'),
-            'value': Keyword(name='value')
-        }
+        _mapping = Model.model_mapping(
+            value=Keyword()
+        )
 
         def _compute_id(self):
             return self.value + '_id'
@@ -103,11 +101,10 @@ def fix_model_two_save(request):
         _meta = {
             '_doc_type': 'model_save_two'
         }
-        _mapping = {
-            'id': Keyword(name='id'),
-            'value': Keyword(name='value'),
-            'subvalue': Keyword(name='subvalue')
-        }
+        _mapping = Model.model_mapping(
+            value=Keyword(),
+            subvalue=Keyword()
+        )
 
     es = elastic_connect.get_es()
     indices = elastic_connect.create_mappings(model_classes=[TwoSave])
