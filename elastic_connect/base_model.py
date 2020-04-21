@@ -270,10 +270,8 @@ class Model(object):
             if not id:
                 return []
             print("getting multiple document %s" % id)
-            ret = cls.get_es_connection().mget(body={'ids':id})
+            ret = cls.get_es_connection().mget(body={'ids': id})
             return ret
-        
-        
 
     @classmethod
     def all(cls, size=100, sort=None):
@@ -328,7 +326,7 @@ class Model(object):
             return sort
 
         sort = prepare_sort_array(sort)
-        
+
         if not stringify:
             return sort
         ret = []
@@ -507,13 +505,14 @@ class Mapping(dict):
     """
     Class describing an Elasticsearch mapping.
     """
+
     def __init__(self, **kwargs):
         for n, v in kwargs.items():
             self.__setitem__(n, v)
 
-
     def __setitem__(self, name, value):
         if not isinstance(value, data_types_base.BaseDataType):
-            raise Exception("Only BaseDataType derived classes can be used in a Mapping")
+            raise Exception(
+                "Only BaseDataType derived classes can be used in a Mapping")
         value.name = name
         return super().__setitem__(name, value)

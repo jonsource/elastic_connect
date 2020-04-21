@@ -84,12 +84,12 @@ def fix_es(request):
 
     es = elastic_connect.get_es()
     template = {
-                "template": "*",
-                    "settings": {
-                        "number_of_shards": 1,
-                        "number_of_replicas": 1
-                    }
-                }
+        "template": "*",
+        "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
+        }
+    }
     es.indices.put_template(name="test_all", body=template, order=1)
     logger.info("templates %s", es.indices.get_template(name='*'))
 

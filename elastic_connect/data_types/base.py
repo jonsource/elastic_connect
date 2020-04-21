@@ -78,7 +78,7 @@ class Date(BaseDataType):
 class Boolean(BaseDataType):
 
     def from_python(self, value):
-        return value == True
+        return value == True  # noqa E712
 
 
 class Integer(BaseDataType):
@@ -90,7 +90,7 @@ class Long(BaseDataType):
 
 
 class ScaledFloat(BaseDataType):
-    
+
     def __init__(self, scaling_factor, name=None):
         self.name = name
         self.scaling_factor = scaling_factor

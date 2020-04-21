@@ -4,8 +4,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class BadJoinTargetError(Exception):
     pass
+
 
 class Join(BaseDataType):
     """Abstract parent of model joins - dependent child / parent models."""
@@ -51,11 +53,11 @@ class Join(BaseDataType):
         """
 
         if not self.target:
-            # get class from string - to avoid circular imports and class self
-            # reference
+            # get class from string - to avoid circular imports and
+            # class self reference
             try:
                 self.target = self.class_for_name(self._target_module,
-                                              self._target)
+                                                  self._target)
             except ModuleNotFoundError:
                 message = ("Cannot find module %s, to get %s. "
                            "Check the mapping of field '%s' "
@@ -76,8 +78,8 @@ class Join(BaseDataType):
         """Gets the source model of the join."""
 
         if not self.source:
-            # get class from string - to avoid circular imports and class self
-            # reference
+            # get class from string - to avoid circular imports and
+            # class self reference
             self.source = self.class_for_name(self._source_module,
                                               self._source)
         return self.source
@@ -173,7 +175,8 @@ class SingleJoin(Join):
 class MultiJoin(Join):
     """1:N model join."""
 
-    def __init__(self, source: str, target: str, join_by=None, name: str = None):
+    def __init__(self, source: str, target: str, join_by=None,
+                 name: str = None):
         super(MultiJoin, self).__init__(name=name,
                                         source=source,
                                         target=target)
@@ -266,13 +269,15 @@ class LooseJoin(Join):
 
 class SingleJoinLoose(SingleJoin, LooseJoin):
 
-    def __init__(self, source: str, target: str, name: str = None, do_lazy_load=False):
+    def __init__(self, source: str, target: str, name: str = None,
+                 do_lazy_load=False):
         super().__init__(name=name, source=source, target=target)
         self.do_lazy_load = do_lazy_load
 
     def lazy_load(self, value):
         if not self.do_lazy_load:
-            logger.debug("SingleJoinLoose::lazy_load %s of %s skipped" % (self.name, value))
+            logger.debug("SingleJoinLoose::lazy_load %s of %s skipped" %
+                         (self.name, value))
             return None
 
         assert self.target_property
@@ -280,22 +285,26 @@ class SingleJoinLoose(SingleJoin, LooseJoin):
         find_by = {self.target_property: value.id}
         try:
             ret = target.find_by(**find_by, size=1)[0]
-        except IndexError as e:
+        except IndexError:
             ret = None
         return ret
+
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
     """
     Important! Dosen't preserve order!
     """
-    def __init__(self, source: str, target: str, name: str = None, join_by=None, do_lazy_load=False):
+
+    def __init__(self, source: str, target: str, name: str = None,
+                 join_by=None, do_lazy_load=False):
         super().__init__(name=name, source=source, target=target)
         self.do_lazy_load = do_lazy_load
 
     def lazy_load(self, value):
         if not self.do_lazy_load:
-            logger.debug("MultiJoinLoose::lazy_load %s of %s skipped" % (self.name, value))
-            return [];
+            logger.debug("MultiJoinLoose::lazy_load %s of %s skipped" %
+                         (self.name, value))
+            return []
 
         assert self.target_property
         target = self.get_target()

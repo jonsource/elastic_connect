@@ -192,16 +192,15 @@ class Namespace(object):
                 if e.error != 'index_already_exists_exception':
                     raise e
 
-        mappings = {}
         created = []
         for model_class in model_classes:
             index_name = model_class.get_index()
             doctype_name = model_class.get_doctype()
             mapping = {
                 "properties": model_class.get_es_mapping()
-                }
+            }
             safe_create(index=index_name,
-                body={"mappings": {doctype_name: mapping}})
+                        body={"mappings": {doctype_name: mapping}})
             created.append(index_name)
 
         return created
