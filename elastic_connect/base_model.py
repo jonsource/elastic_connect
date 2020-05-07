@@ -508,10 +508,10 @@ class Model(object):
 
         :return: Mapping
         """
-        if 'id' not in args:
-            args['id'] = data_types.Keyword()
-
-        return Mapping(**args)
+        
+        mapping = Mapping(**args)
+        mapping.add_field('id', data_types.Keyword())
+        return mapping
 
 
 class Mapping(dict):
@@ -529,3 +529,7 @@ class Mapping(dict):
                 "Only BaseDataType derived classes can be used in a Mapping")
         value.name = name
         return super().__setitem__(name, value)
+
+    def add_field(self, name, value):
+        if name not in self:
+            self.__setitem__(name, value)
