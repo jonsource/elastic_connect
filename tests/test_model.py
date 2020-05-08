@@ -150,6 +150,13 @@ def test_get(fix_model_one_save):
     assert instance.value == 'pokus'
 
 
+def test_get_nonexistant(fix_model_one_save):
+    cls = fix_model_one_save
+
+    with pytest.raises(elasticsearch.exceptions.NotFoundError):
+        instance = cls.get("badbadId")
+
+
 def test_multi_get(fix_model_one_save):
     cls = fix_model_one_save
 
