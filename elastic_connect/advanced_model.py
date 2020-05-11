@@ -15,45 +15,23 @@ WITH = 1
 ONLY = 2
 
 
-class StampedModel(Model):
-    __slots__ = ('created_at', 'updated_at', 'deleted')
+class SoftDeleteInterface(Model):
+    #__slots__ = ('deleted',)
 
     thrash_handling = NONE
 
     @classmethod
     def model_mapping(cls, **args):
-        """
-        Creates a Mapping with given parameters.
-
-        Automatically adds the id field as Keyword if not present
-        Automatically adds created_at and updated_at as Date
-        Automatically adds deleted as Boolean
-
-        :param **args: field_name=data_type pairs describing the fields
-            of this model.
-
-        :return: Mapping
-        """
-
         mapping = super().model_mapping(**args)
-        mapping.add_field('created_at', data_types.Date())
-        mapping.add_field('updated_at', data_types.Date())
         mapping.add_field('deleted', data_types.Boolean())
         return mapping
 
     @classmethod
     def create(cls, **kw) -> 'StampedModel':
-        now = datetime.now()
-        kw['created_at'] = now
-        kw['updated_at'] = now
         kw['deleted'] = False
+        # logger.warn('sdm create %s' % kw)
         instance = super().create(**kw)
         return instance
-
-    def save(self) -> 'StampedModel':
-        now = datetime.now()
-        self.updated_at = now
-        return super().save()
 
     def delete(self, force=False):
         if force:
@@ -126,6 +104,48 @@ class StampedModel(Model):
             yield cls
         finally:
             cls.thrash_handling = orig
+
+
+class TimeStampedInterface(Model):
+    #__slots__ = ('created_at', 'updated_at')
+
+    @classmethod
+    def model_mapping(cls, **args):
+        """
+        Creates a Mapping with given parameters.
+
+        Automatically adds the id field as Keyword if not present
+        Automatically adds created_at and updated_at as Date
+        Automatically adds deleted as Boolean
+
+        :param **args: field_name=data_type pairs describing the fields
+            of this model.
+
+        :return: Mapping
+        """
+
+        mapping = super().model_mapping(**args)
+        mapping.add_field('created_at', data_types.Date())
+        mapping.add_field('updated_at', data_types.Date())
+        return mapping
+
+    @classmethod
+    def create(cls, **kw) -> 'StampedModel':
+        now = datetime.now()
+        kw['created_at'] = now
+        kw['updated_at'] = now
+        # logger.warn('tsm create %s' % kw)
+        instance = super().create(**kw)
+        return instance
+
+    def save(self) -> 'StampedModel':
+        now = datetime.now()
+        self.updated_at = now
+        return super().save()
+
+
+class StampedModel(TimeStampedInterface, SoftDeleteInterface):
+    __slots__ = ('created_at', 'updated_at', 'deleted')
 
 
 class VersionedModel(Model):
