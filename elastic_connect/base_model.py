@@ -39,6 +39,8 @@ class Model(object):
     _es_namespace = elastic_connect._namespaces['_default']
     _es_connection = None
 
+    _check_version = False
+
     def __init__(self, **kw):
         r"""
         Creates an instance of the model using \*\*kw parameters for
@@ -138,9 +140,11 @@ class Model(object):
         """
 
         kwargs = {}
+        logger.error("hit %s" % hit)
         for property, type in cls._mapping.items():
             kwargs.update({property: type.from_es(hit['_source'])})
-            kwargs['id'] = hit['_id']
+        kwargs['id'] = hit['_id']
+        kwargs['_version'] = hit['_version']
         model = cls(**kwargs)
         return model
 
@@ -154,7 +158,7 @@ class Model(object):
         :param kw: keyword arguments describing the model's attributes
         :return: instance of the model with the ``id`` set
         """
-
+        # logger.warn('bm create %s' % kw)
         model = cls.from_dict(**kw)
         model.id = model._compute_id()
         ret = cls._create(model)
@@ -173,7 +177,7 @@ class Model(object):
         :return: the model with the ``id`` set
         """
 
-        serialized_flat = model.serialize(exclude=['id'], flat=True)
+        serialized_flat = model.serialize(exclude=['id', '_version'], flat=True)
         if model.id:
             response = cls.get_es_connection().create(id=model.id,
                                                       body=serialized_flat)
@@ -181,10 +185,11 @@ class Model(object):
         # creation of duplicates
         else:
             logger.debug("serialize in _create %s",
-                         model.serialize(exclude=['id']))
+                         model.serialize(exclude=['id', '_version']))
             response = cls.get_es_connection().index(body=serialized_flat)
         model.id = response['_id']
         logger.debug("model.id from _create %s", model.id)
+        model._version = response['_version']
         model.post_save()
         return model
 
@@ -205,12 +210,22 @@ class Model(object):
             if cmp and cmp != self.id:
                 raise IntegrityError("Can't save model with a changed "
                                      "computed id, create a new model")
-            serialized = self.serialize(exclude=['id'])
-            es_connection.update(id=self.id,
-                                 body={'doc': serialized})
+            serialized = self.serialize(exclude=['id', '_version'])
+            # TODO support for explicit version checking
+            logger.error("serialized for save %s", serialized)
+            if(self._check_version):
+                ver = self._version
+            else:
+                ver = None
+            response = es_connection.update(id=self.id,
+                                 body={'doc': serialized},
+                                 version=ver)
+            self._version = response['_version']
+            logger.debug("model._version from save/update %s", self._version)
         else:
             self.id = self._compute_id()
-            serialized_flat = self.serialize(exclude=['id'], flat=True)
+            serialized_flat = self.serialize(exclude=['id', '_version'],
+                                             flat=True)
             if self.id:
                 response = es_connection.create(id=self.id,
                                                 body=serialized_flat)
@@ -218,6 +233,8 @@ class Model(object):
                 response = es_connection.index(body=serialized_flat)
                 self.id = response['_id']
             logger.debug("model.id from save %s", self.id)
+            self._version = response['_version']
+            logger.debug("model._version from save/craete %s", self._version)
         return self.post_save()
 
     def post_save(self):
@@ -284,7 +301,7 @@ class Model(object):
         """
         sort = cls.prepare_sort(sort, stringify=True)
 
-        return cls.get_es_connection().search(sort=sort, size=size)
+        return cls.get_es_connection().search(sort=sort, size=size, version=True)
 
     @classmethod
     def get_default_sort(cls):
@@ -490,7 +507,7 @@ class Model(object):
         mapping = {}
         for name, type in cls._mapping.items():
             es_type = type.get_es_type()
-            if name != 'id' and es_type:
+            if es_type and ( name != 'id' and name != '_version' ):
                 mapping[name] = es_type
 
         logger.debug("mapping %s", mapping)
