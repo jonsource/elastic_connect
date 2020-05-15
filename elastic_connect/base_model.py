@@ -2,6 +2,7 @@ import elastic_connect
 import elastic_connect.data_types as data_types
 import elastic_connect.data_types.base as data_types_base
 import logging
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class Model(object):
     child/parent models.
     """
 
-    __slots__ = ('id', )
+    __slots__ = ('id', '_version')
 
     _mapping = {  # type: dict[str:data_types.base.BaseDataType]
         'id': data_types.Keyword(name='id'),
@@ -34,12 +35,13 @@ class Model(object):
 
     _meta = {
         '_doc_type': 'model',
+        # not needed - if missing, treated as false
+        # '_load_version': False,
+        # '_check_version': False,
     }
 
     _es_namespace = elastic_connect._namespaces['_default']
     _es_connection = None
-
-    _check_version = False
 
     def __init__(self, **kw):
         r"""
@@ -140,11 +142,11 @@ class Model(object):
         """
 
         kwargs = {}
-        logger.error("hit %s" % hit)
         for property, type in cls._mapping.items():
             kwargs.update({property: type.from_es(hit['_source'])})
         kwargs['id'] = hit['_id']
-        kwargs['_version'] = hit['_version']
+        if cls.should_load_version():
+            kwargs['_version'] = hit['_version']
         model = cls(**kwargs)
         return model
 
@@ -184,8 +186,6 @@ class Model(object):
         # TODO: probably needs to call cls.refresh() to properly prevent
         # creation of duplicates
         else:
-            logger.debug("serialize in _create %s",
-                         model.serialize(exclude=['id', '_version']))
             response = cls.get_es_connection().index(body=serialized_flat)
         model.id = response['_id']
         logger.debug("model.id from _create %s", model.id)
@@ -211,9 +211,7 @@ class Model(object):
                 raise IntegrityError("Can't save model with a changed "
                                      "computed id, create a new model")
             serialized = self.serialize(exclude=['id', '_version'])
-            # TODO support for explicit version checking
-            logger.error("serialized for save %s", serialized)
-            if(self._check_version):
+            if self.should_check_version():
                 ver = self._version
             else:
                 ver = None
@@ -221,7 +219,6 @@ class Model(object):
                                  body={'doc': serialized},
                                  version=ver)
             self._version = response['_version']
-            logger.debug("model._version from save/update %s", self._version)
         else:
             self.id = self._compute_id()
             serialized_flat = self.serialize(exclude=['id', '_version'],
@@ -234,7 +231,6 @@ class Model(object):
                 self.id = response['_id']
             logger.debug("model.id from save %s", self.id)
             self._version = response['_version']
-            logger.debug("model._version from save/craete %s", self._version)
         return self.post_save()
 
     def post_save(self):
@@ -301,7 +297,7 @@ class Model(object):
         """
         sort = cls.prepare_sort(sort, stringify=True)
 
-        return cls.get_es_connection().search(sort=sort, size=size, version=True)
+        return cls.get_es_connection().search(sort=sort, size=size, version=cls.should_load_version())
 
     @classmethod
     def get_default_sort(cls):
@@ -433,7 +429,7 @@ class Model(object):
             body['search_after'] = search_after
 
         logger.debug("find_by body %s", body)
-        ret = cls.get_es_connection().search(body=body)
+        ret = cls.get_es_connection().search(body=body, version=cls.should_load_version())
         return ret
 
     def serialize(self,
@@ -528,7 +524,82 @@ class Model(object):
         
         mapping = Mapping(**args)
         mapping.add_field('id', data_types.Keyword())
+        mapping.add_field('_version', data_types.Long())
         return mapping
+
+    @classmethod
+    def should_check_version(cls):
+        return cls._meta.get('_check_version', False)
+
+    @classmethod
+    def should_load_version(cls):
+        return cls._meta.get('_load_version', False) or cls._meta.get('_check_version', False)
+
+    @classmethod
+    def version_checking(cls, check_version):
+        """
+        Sets the version checking behavior
+
+        :param check_version: boolean, whether to check or not check the version
+            of document on update. Updating an out of sync version raises
+            elasticsearch.exceptions.ConflictError
+        :return: CheckVersionManager - can be used in a with statement like this
+
+        :example:
+
+        Used as setter:
+
+        .. code-block:: python
+
+           model.version_checking(True)
+           instance = model.get(id)
+
+           # some time consuming operations
+
+           instance.new_vale = computed
+
+           # will raise elasticsearch.exceptions.ConflictError if existing
+           # document changed since we got our instance
+
+           instance.save()
+
+
+        Used as a context manager:
+
+        .. code-block:: python
+
+            instance = model.get(id)
+
+            # some time consuming operations
+
+            instance.new_vale = computed
+
+            # make sure the model didn't change underhand
+            try:
+                with model.version_checking(True):
+                    instance.save()
+            except elasticsearch.exceptions.ConflictError:
+                # handle the differing underlying model here
+
+        """
+        manager = cls.CheckVersionManager(cls)
+        cls._meta['_check_version'] = check_version
+        return manager
+
+    class CheckVersionManager:
+        """
+        ContextManager that resets _check_version attribute back to it's old value
+        upon exit from with statement.
+        """
+        def __init__(self, parent_class):
+            self.parent_class = parent_class
+            self.old_value = parent_class._meta.get('_check_version', False)
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, type, value, traceback):
+            self.parent_class._check_version = self.old_value
 
 
 class Mapping(dict):

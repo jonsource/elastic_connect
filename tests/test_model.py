@@ -565,6 +565,7 @@ def test_set_mapping():
         }
         _mapping = {
             'id': Keyword(name='id'),
+            '_version': Long(name='_version'),
             'value': Keyword(name='value')
         }
 
@@ -585,7 +586,7 @@ def test_set_mapping():
 
     pprint(NewStyle._mapping)
 
-    assert len(OldStyle._mapping) == 2
-    assert len(NewStyle._mapping) == 2
+    assert len(OldStyle._mapping) == 3
+    assert len(NewStyle._mapping) == 3
 
     assert OldStyle.get_es_mapping() == NewStyle.get_es_mapping()

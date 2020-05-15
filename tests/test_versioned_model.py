@@ -16,7 +16,8 @@ def fix_versioned_model(request):
         __slots__ = ('value', )
 
         _meta = {
-            '_doc_type': 'versioned_one'
+            '_doc_type': 'versioned_one',
+            '_load_version': True,
         }
         _mapping = VersionedModel.model_mapping(value=Keyword())
 
@@ -57,16 +58,21 @@ def test_version_awareness(fix_versioned_model):
     cls.refresh()
     assert instance1._version == 1
 
-    print("\n\npregetpreget\n\n")
     instance2 = cls.get(instance1.id)
     assert instance2._version == 1
-
-    print("\n\npre save\n\n")
 
     instance1.value='value2'
     instance1.save()
     assert instance1._version == 2
 
+    instance2.value = 'value3'
     with pytest.raises(elasticsearch.exceptions.ConflictError):
-        instance2.value='value3'
+        with cls.version_checking(True):
+            instance2.save()
+
+    assert instance2._version == 1
+
+    with cls.version_checking(False):
         instance2.save()
+
+    assert instance2._version == 3
