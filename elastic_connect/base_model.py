@@ -2,7 +2,6 @@ import elastic_connect
 import elastic_connect.data_types as data_types
 import elastic_connect.data_types.base as data_types_base
 import logging
-from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +178,8 @@ class Model(object):
         :return: the model with the ``id`` set
         """
 
-        serialized_flat = model.serialize(exclude=['id', '_version'], flat=True)
+        serialized_flat = model.serialize(
+            exclude=['id', '_version'], flat=True)
         if model.id:
             response = cls.get_es_connection().create(id=model.id,
                                                       body=serialized_flat)
@@ -216,8 +216,8 @@ class Model(object):
             else:
                 ver = None
             response = es_connection.update(id=self.id,
-                                 body={'doc': serialized},
-                                 version=ver)
+                                            body={'doc': serialized},
+                                            version=ver)
             self._version = response['_version']
         else:
             self.id = self._compute_id()
@@ -297,7 +297,8 @@ class Model(object):
         """
         sort = cls.prepare_sort(sort, stringify=True)
 
-        return cls.get_es_connection().search(sort=sort, size=size, version=cls.should_load_version())
+        return cls.get_es_connection().search(
+            sort=sort, size=size, version=cls.should_load_version())
 
     @classmethod
     def get_default_sort(cls):
@@ -429,7 +430,8 @@ class Model(object):
             body['search_after'] = search_after
 
         logger.debug("find_by body %s", body)
-        ret = cls.get_es_connection().search(body=body, version=cls.should_load_version())
+        ret = cls.get_es_connection().search(
+            body=body, version=cls.should_load_version())
         return ret
 
     def serialize(self,
@@ -503,7 +505,7 @@ class Model(object):
         mapping = {}
         for name, type in cls._mapping.items():
             es_type = type.get_es_type()
-            if es_type and ( name != 'id' and name != '_version' ):
+            if es_type and (name != 'id' and name != '_version'):
                 mapping[name] = es_type
 
         logger.debug("mapping %s", mapping)
@@ -521,7 +523,7 @@ class Model(object):
 
         :return: Mapping
         """
-        
+
         mapping = Mapping(**args)
         mapping.add_field('id', data_types.Keyword())
         mapping.add_field('_version', data_types.Long())
@@ -533,17 +535,19 @@ class Model(object):
 
     @classmethod
     def should_load_version(cls):
-        return cls._meta.get('_load_version', False) or cls._meta.get('_check_version', False)
+        return cls._meta.get('_load_version', False) or cls._meta.get(
+            '_check_version', False)
 
     @classmethod
     def version_checking(cls, check_version):
         """
         Sets the version checking behavior
 
-        :param check_version: boolean, whether to check or not check the version
-            of document on update. Updating an out of sync version raises
-            elasticsearch.exceptions.ConflictError
-        :return: CheckVersionManager - can be used in a with statement like this
+        :param check_version: boolean, whether to check or not check the
+            version of document on update. Updating an out of sync
+            version raises elasticsearch.exceptions.ConflictError
+        :return: CheckVersionManager - can be used in a with statement
+            like this
 
         :example:
 
@@ -558,8 +562,8 @@ class Model(object):
 
            instance.new_vale = computed
 
-           # will raise elasticsearch.exceptions.ConflictError if existing
-           # document changed since we got our instance
+           # will raise elasticsearch.exceptions.ConflictError if
+           # existing document changed since we got our instance
 
            instance.save()
 
@@ -588,9 +592,10 @@ class Model(object):
 
     class CheckVersionManager:
         """
-        ContextManager that resets _check_version attribute back to it's old value
-        upon exit from with statement.
+        ContextManager that resets _meta('_check_version') attribute
+        back to it's old value upon exit from with statement.
         """
+
         def __init__(self, parent_class):
             self.parent_class = parent_class
             self.old_value = parent_class._meta.get('_check_version', False)

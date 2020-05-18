@@ -1,9 +1,7 @@
-import elastic_connect
 import elastic_connect.data_types as data_types
-import elastic_connect.data_types.base
 import logging
 from datetime import datetime
-from .base_model import Model
+from .base_model import Model, IntegrityError
 from elasticsearch.exceptions import NotFoundError
 from contextlib import contextmanager
 
@@ -16,7 +14,8 @@ ONLY = 2
 
 
 class SoftDeleteInterface(Model):
-    #__slots__ = ('deleted',)
+    # must not define __slosts__ here to allow multiple inheritance
+    # __slots__ = ('deleted',)
 
     thrash_handling = NONE
 
@@ -38,8 +37,7 @@ class SoftDeleteInterface(Model):
             return super().delete()
 
         self.deleted = True
-        ret = self.save()
-        return
+        return self.save()
 
     @classmethod
     def restore(cls, id) -> 'StampedModel':
@@ -47,7 +45,7 @@ class SoftDeleteInterface(Model):
             instance = cls.get(id)
         instance.deleted = False
         instance.save()
-        return instance;
+        return instance
 
     @classmethod
     def get(cls, id):
@@ -55,7 +53,8 @@ class SoftDeleteInterface(Model):
         if not len(result):
             raise NotFoundError()
         if len(result) > 1:
-            raise IntegrityError("Get returned multiple items, should return one!")
+            raise IntegrityError(
+                "Get returned multiple items, should return one!")
         return result[0]
 
     @classmethod
@@ -76,7 +75,7 @@ class SoftDeleteInterface(Model):
         else:
             kw = {**kw, **cls._thrashed_kw()}
         return super().find_by(size=size, sort=sort,
-            search_after=search_after, query=query, **kw)
+                               search_after=search_after, query=query, **kw)
 
     @classmethod
     def _thrashed_kw(cls):
@@ -95,7 +94,7 @@ class SoftDeleteInterface(Model):
     @contextmanager
     def thrashed_only(cls):
         return cls._thrashed(ONLY)
-        
+
     @classmethod
     def _thrashed(cls, handling):
         orig = cls.thrash_handling
@@ -107,7 +106,8 @@ class SoftDeleteInterface(Model):
 
 
 class TimeStampedInterface(Model):
-    #__slots__ = ('created_at', 'updated_at')
+    # must not define __slosts__ here to allow multiple inheritance
+    # __slots__ = ('created_at', 'updated_at')
 
     @classmethod
     def model_mapping(cls, **args):

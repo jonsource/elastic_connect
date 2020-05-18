@@ -135,7 +135,7 @@ class SingleJoin(Join):
             except (AttributeError, TypeError):
                 ret = value
         else:
-            ret = value.serialize(depth=depth-1)
+            ret = value.serialize(depth=depth - 1)
         logger.debug("serialize single %s", ret)
         return ret
 
