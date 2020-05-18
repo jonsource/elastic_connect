@@ -1,7 +1,7 @@
 import elastic_connect.data_types as data_types
 import logging
 from datetime import datetime
-from .base_model import Model, IntegrityError
+from .base_model import Mapping, Model, IntegrityError
 from elasticsearch.exceptions import NotFoundError
 from contextlib import contextmanager
 
@@ -144,13 +144,74 @@ class TimeStampedInterface(Model):
         return super().save()
 
 
+class VersionedInterface(Model):
+    pass
+
+
 class StampedModel(TimeStampedInterface, SoftDeleteInterface):
     __slots__ = ('created_at', 'updated_at', 'deleted')
 
 
-class VersionedModel(Model):
-    pass
+class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
+    __slots__ = ('created_at', 'updated_at', 'deleted')
+    _version_class = None
 
+    @classmethod
+    def get_version_class(cls):
+        if(cls._version_class):
+            return cls._version_class
+
+        mapping = Mapping()
+        for key, val in cls._mapping.items():
+            print("KEY VAL", key, val)
+            mapping.add_field(key, val.__class__())
+        mapping.add_field('_document_id', data_types.Keyword())
+        mapping.add_field('_version_id', data_types.Keyword())
+        mapping.add_field('_status', data_types.Keyword())
+
+        meta = {'_doc_type': cls._meta['_doc_type'] + '_version'}
+
+        class VersionClass(cls):
+            _es_namespace = cls._es_namespace
+            _es_connection = None
+            __slots__ = set(list(cls.__slots__) + ['_document_id', '_version_id', '_type'])
+
+            _meta = meta
+
+            _mapping = mapping
+
+            def to_version_entry(self):
+                self._type = "entry"
+      
+        
+        VersionClass.__name__ = cls.__name__ + '_version'
+        cls._version_class = VersionClass
+        # cls._es_namespace.create_mappings(model_classes=[VersionClass])
+        return cls._version_class
+
+    def save(self) -> 'VersionedModel':
+        previous = self.get(self.id)
+        if previous._version != self._version:
+            raise elasticsearch.exceptions.ConflictError('Underlying document changed version.')
+        proposal = previous.to_version_proposal().save()
+        try:
+            main_entry = super().save()
+        except elasticsearch.exceptions.ConflictError as e:
+            proposal.delete(force=True)
+            raise e
+        varsion = proposal.to_version_entry().save()
+        return main_entry
+
+    def to_version_proposal(self):
+        cls = self.get_version_class()
+        proposal = cls()
+        for attr, val in self.__dict__.items():
+            proposal.__dict__[attr] = val
+        proposal._status = 'proposal'
+        proposal._version = 0
+        proposal._version_id = self._version
+        proposal._document_id = self.id
+        return proposal
 
 class AuditedModel(Model):
     pass
