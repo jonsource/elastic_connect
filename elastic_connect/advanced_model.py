@@ -1,9 +1,10 @@
 import elastic_connect.data_types as data_types
 import logging
 from datetime import datetime
-from .base_model import Model, IntegrityError
+from .base_model import Mapping, Model, IntegrityError
 from elasticsearch.exceptions import NotFoundError
 from contextlib import contextmanager
+import elasticsearch.exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -144,13 +145,110 @@ class TimeStampedInterface(Model):
         return super().save()
 
 
+class VersionedInterface(Model):
+    pass
+
+
 class StampedModel(TimeStampedInterface, SoftDeleteInterface):
     __slots__ = ('created_at', 'updated_at', 'deleted')
 
 
-class VersionedModel(Model):
-    pass
+class VersionInterface():
+    def to_version_entry(self):
+        self._status = "entry"
+        return self
 
+
+class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
+    __slots__ = ('created_at', 'updated_at', 'deleted')
+    _version_class = None
+
+    @classmethod
+    def get_version_class(cls):
+        if(cls._version_class):
+            return cls._version_class
+
+        slots = set(list(cls.__slots__) + ['_document_id', '_document_version', '_type'])
+
+        mapping = Mapping()
+        for key, val in cls._mapping.items():
+            print("KEY VAL", key, val)
+            mapping.add_field(key, val.__class__())
+        mapping.add_field('_document_id', data_types.Keyword())
+        mapping.add_field('_document_version', data_types.Keyword())
+        mapping.add_field('_status', data_types.Keyword())
+
+        meta = {'_doc_type': cls._meta['_doc_type'] + '_version'}
+
+        # https://stackoverflow.com/questions/1401661/list-all-base-classes-in-a-hierarchy-of-given-class
+        # https://www.python-course.eu/python3_classes_and_type.php
+
+        # class VersionClass(Model):
+        #     _es_namespace = cls._es_namespace
+        #     _es_connection = None
+        #     __slots__ = set(list(cls.__slots__) + ['_document_id', '_document_version', '_type'])
+
+        #     _meta = meta
+
+        #     _mapping = mapping
+
+        #     def to_version_entry(self):
+        #         self._type = "entry"
+
+        VersionClass = type(cls.__name__ + '_version',
+                        (Model, VersionInterface),
+                        {
+                            '__slots__': slots,
+                            '_mapping': mapping,
+                            '_meta': meta,
+                            '_es_namespace': cls._es_namespace,
+                            '_es_connection': None,
+                        })
+              
+        cls._version_class = VersionClass
+        # cls._es_namespace.create_mappings(model_classes=[VersionClass])
+        return cls._version_class
+
+    def save(self) -> 'VersionedModel':
+        print('\nsaving' + self.__class__.__name__)
+
+        previous = self.get(self.id)
+        print('\ngot previous', previous)
+        if previous._version != self._version:
+            raise elasticsearch.exceptions.ConflictError('Underlying document changed version.')
+        proposal = previous.to_version_proposal().save()
+        try:
+            main_entry = super().save()
+        except elasticsearch.exceptions.ConflictError as e:
+            proposal.delete()
+            raise e
+        varsion = proposal.to_version_entry().save()
+        return main_entry
+
+    def to_version_proposal(self):
+        cls = self.get_version_class()
+        proposal = cls()
+        for attr, val in self.__dict__.items():
+            proposal.__dict__[attr] = val
+        for attr in self.__slots__:
+            setattr(proposal, attr, getattr(self, attr))
+        proposal._status = 'proposal'
+        proposal._version = 0
+        proposal._document_version = self._version
+        proposal._document_id = self.id
+        return proposal
+
+    @classmethod
+    def get_document_version(cls, id, version):
+        return cls.get_version_class().find_by(_document_id=id, _document_version=version, _status='entry')
+
+    def get_version(self, version):
+        return self.get_version_class(self.id, version)
+
+    @classmethod
+    def refresh(cls):
+        cls.get_version_class().refresh()
+        return super().refresh()
 
 class AuditedModel(Model):
     pass

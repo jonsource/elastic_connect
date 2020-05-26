@@ -22,8 +22,10 @@ def fix_versioned_model(request):
         _mapping = VersionedModel.model_mapping(value=Keyword())
 
     es = elastic_connect.get_es()
-    indices = elastic_connect.create_mappings(model_classes=[VersionedOne])
+    VersionClass = VersionedOne.get_version_class()
+    indices = elastic_connect.create_mappings(model_classes=[VersionedOne, VersionClass])
     assert es.indices.exists(index=VersionedOne.get_index())
+    assert es.indices.exists(index=VersionClass.get_index())
 
     yield VersionedOne
 
@@ -33,6 +35,7 @@ def fix_versioned_model(request):
 
     elastic_connect.delete_indices(indices=indices)
     assert not es.indices.exists(index=VersionedOne.get_index())
+    assert not es.indices.exists(index=VersionClass.get_index())
 
 
 @pytest.fixture(autouse=True)
@@ -42,37 +45,85 @@ def delete_all_instances(fix_versioned_model):
     instances = fix_versioned_model.all()
 
     for instance in instances:
-        instance.delete()
+        instance.delete(force=True)
 
     fix_versioned_model.refresh()
 
     assert len(fix_versioned_model.all()) == 0
 
-
-def test_version_awareness(fix_versioned_model):
+def test_get_version_class(fix_versioned_model):
     cls = fix_versioned_model
 
-    assert cls.get_es_mapping() == {'value': {'type': 'keyword'}}
+    version_class = cls.get_version_class()
+    assert version_class.__name__ == 'VersionedOne_version'
+
+    assert cls.get_es_mapping() == {
+            'value': {'type': 'keyword'},
+            'created_at': {'type': 'date'},
+            'deleted': {'type': 'boolean'},
+            'updated_at': {'type': 'date'},
+            }
+
+    assert version_class.get_es_mapping() == {
+            '_document_id': {'type': 'keyword'},
+            '_status': {'type': 'keyword'},
+            '_document_version': {'type': 'keyword'},
+            'value': {'type': 'keyword'},
+            'created_at': {'type': 'date'},
+            'deleted': {'type': 'boolean'},
+            'updated_at': {'type': 'date'},
+            }
+
+    assert version_class.get_index() == "test_versioned_one_version"
+    assert cls.get_index() == "test_versioned_one"
+
+def test_to_proposal(fix_versioned_model):
+    # TODO: test also with a class that doesn't have slots
+    cls = fix_versioned_model
 
     instance1 = cls.create(value='value1')
     cls.refresh()
     assert instance1._version == 1
 
-    instance2 = cls.get(instance1.id)
-    assert instance2._version == 1
+    proposal = instance1.to_version_proposal()
+    assert proposal.__class__.__name__ == 'VersionedOne_version'
+    assert proposal.value == 'value1'
+    assert proposal._document_version == 1
+    assert proposal._status == 'proposal'
+    assert proposal._document_id == instance1.id
 
-    instance1.value='value2'
+
+def test_versioned_update(fix_versioned_model):
+    from pprint import pprint
+    cls = fix_versioned_model
+
+    instance1 = cls.create(value='value1')
+    cls.refresh()
+    assert instance1._version == 1
+
+    instance1.value = 'value2'
     instance1.save()
+    cls.refresh()
     assert instance1._version == 2
 
-    instance2.value = 'value3'
-    with pytest.raises(elasticsearch.exceptions.ConflictError):
-        with cls.version_checking(True):
-            instance2.save()
+    loaded1 = cls.get(instance1.id)
+    assert loaded1.id == instance1.id
+    assert loaded1.value == 'value2'
+    assert loaded1._version == 2
 
-    assert instance2._version == 1
+    versions = cls.get_version_class().all()
+    assert len(versions) == 1
+    pprint(versions)
 
-    with cls.version_checking(False):
-        instance2.save()
+    loaded2 = cls.get_document_version(instance1.id, 1)
+    pprint(loaded2)
+    assert len(loaded2) == 1
 
-    assert instance2._version == 3
+    
+    loaded2 = loaded2[0]
+
+    assert loaded2._document_id == instance1.id
+    assert loaded2.value == 'value1'
+    assert loaded2._document_version == 1
+
+

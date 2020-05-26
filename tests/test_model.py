@@ -120,6 +120,35 @@ def fix_model_two_save(request):
     assert not es.indices.exists(index=TwoSave.get_index())
 
 
+@pytest.fixture(scope="module")
+def fix_version_aware(request):
+
+    class VersionAware(Model):
+        __slots__ = ('value',)
+
+        _meta = {
+            '_doc_type': 'model_version_aware',
+            '_load_version': True,
+        }
+        
+        _mapping = Model.model_mapping(
+            value=Keyword(),
+        )
+
+    es = elastic_connect.get_es()
+    indices = elastic_connect.create_mappings(model_classes=[VersionAware])
+    assert es.indices.exists(index=VersionAware.get_index())
+
+    yield VersionAware
+
+    if request.config.getoption("--index-noclean"):
+        print("** not cleaning")
+        return
+
+    elastic_connect.delete_indices(indices=indices)
+    assert not es.indices.exists(index=VersionAware.get_index())
+
+
 def test_create(fix_model_one_save):
     cls = fix_model_one_save
 
@@ -590,3 +619,34 @@ def test_set_mapping():
     assert len(NewStyle._mapping) == 3
 
     assert OldStyle.get_es_mapping() == NewStyle.get_es_mapping()
+
+def test_version_awareness(fix_version_aware):
+    cls = fix_version_aware
+
+    assert cls.get_es_mapping() == {
+                'value': {'type': 'keyword'},
+            }
+
+
+    instance1 = cls.create(value='value1')
+    cls.refresh()
+    assert instance1._version == 1
+
+    instance2 = cls.get(instance1.id)
+    assert instance2._version == 1
+
+    instance1.value='value2'
+    instance1.save()
+    assert instance1._version == 2
+
+    instance2.value = 'value3'
+    with pytest.raises(elasticsearch.exceptions.ConflictError):
+        with cls.version_checking(True):
+            instance2.save()
+
+    assert instance2._version == 1
+
+    with cls.version_checking(False):
+        instance2.save()
+
+    assert instance2._version == 3

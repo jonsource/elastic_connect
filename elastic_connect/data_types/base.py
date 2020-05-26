@@ -69,9 +69,13 @@ class Date(BaseDataType):
         return super().from_python(value)
 
     def deserialize(self, value):
+        if not value:
+            return None
         return parser.parse(value)
 
     def serialize(self, value, depth, to_str, flat):
+        if not value:
+            return None
         return value.isoformat()
 
 
