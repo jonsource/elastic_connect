@@ -154,8 +154,9 @@ class StampedModel(TimeStampedInterface, SoftDeleteInterface):
 
 
 class VersionInterface():
-    def to_version_entry(self):
+    def to_version_entry(self, updated_at):
         self._status = "entry"
+        self.updated_at = updated_at
         return self
 
 
@@ -219,10 +220,11 @@ class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterfa
         proposal = previous.to_version_proposal().save()
         try:
             main_entry = super().save()
+            update_time = main_entry.updated_at
         except elasticsearch.exceptions.ConflictError as e:
             proposal.delete()
             raise e
-        varsion = proposal.to_version_entry().save()
+        varsion = proposal.to_version_entry(updated_at=update_time).save()
         return main_entry
 
     def to_version_proposal(self):
@@ -236,11 +238,17 @@ class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterfa
         proposal._version = 0
         proposal._document_version = self._version
         proposal._document_id = self.id
+        proposal.created_at = self.created_at
         return proposal
 
     @classmethod
     def get_document_version(cls, id, version):
-        return cls.get_version_class().find_by(_document_id=id, _document_version=version, _status='entry')
+        result = cls.get_version_class().find_by(_document_id=id, _document_version=version, _status='entry')
+        if len(result) > 1:
+            raise IntegrityError("Two versions found.")
+        if not result:
+            return None
+        return result[0]
 
     def get_version(self, version):
         return self.get_version_class(self.id, version)

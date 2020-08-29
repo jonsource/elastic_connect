@@ -94,7 +94,6 @@ def test_to_proposal(fix_versioned_model):
 
 
 def test_versioned_update(fix_versioned_model):
-    from pprint import pprint
     cls = fix_versioned_model
 
     instance1 = cls.create(value='value1')
@@ -113,17 +112,52 @@ def test_versioned_update(fix_versioned_model):
 
     versions = cls.get_version_class().all()
     assert len(versions) == 1
-    pprint(versions)
 
     loaded2 = cls.get_document_version(instance1.id, 1)
-    pprint(loaded2)
-    assert len(loaded2) == 1
-
     
-    loaded2 = loaded2[0]
-
     assert loaded2._document_id == instance1.id
     assert loaded2.value == 'value1'
     assert loaded2._document_version == 1
 
+
+def test_versioned_timestamps(fix_versioned_model, freezer):
+    cls = fix_versioned_model
+
+    start = datetime.now()
+
+    instance1 = cls.create(value='value1')
+    cls.refresh()
+    assert instance1._version == 1
+    assert instance1.created_at == start
+    assert instance1.updated_at == start
+
+    freezer.tick(delta=timedelta(seconds=10))
+    now = datetime.now()
+
+    instance1.value = 'value2'
+    instance1.save()
+    cls.refresh()
+
+    assert instance1._version == 2
+    assert instance1.created_at == start
+    assert instance1.updated_at == now
+
+    freezer.tick(delta=timedelta(seconds=10))
+    now2 = datetime.now()
+
+    instance1.value = 'value3'
+    instance1.save()
+    cls.refresh()
+
+    assert instance1._version == 3
+    assert instance1.created_at == start
+    assert instance1.updated_at == now2
+
+    version1 = cls.get_document_version(id=instance1.id, version=1)
+    from pprint import pprint
+    pprint("\n\nversion1")
+    pprint(version1)
+    assert version1.value == 'value1'
+    assert version1.created_at == start
+    assert version1.updated_at == now
 
