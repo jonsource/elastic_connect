@@ -146,22 +146,6 @@ class TimeStampedInterface(Model):
 
 
 class VersionedInterface(Model):
-    pass
-
-
-class StampedModel(TimeStampedInterface, SoftDeleteInterface):
-    __slots__ = ('created_at', 'updated_at', 'deleted')
-
-
-class VersionInterface():
-    def to_version_entry(self, updated_at):
-        self._status = "entry"
-        self.updated_at = updated_at
-        return self
-
-
-class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
-    __slots__ = ('created_at', 'updated_at', 'deleted')
     _version_class = None
 
     @classmethod
@@ -257,6 +241,22 @@ class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterfa
     def refresh(cls):
         cls.get_version_class().refresh()
         return super().refresh()
+
+
+class StampedModel(TimeStampedInterface, SoftDeleteInterface):
+    __slots__ = ('created_at', 'updated_at', 'deleted')
+
+
+class VersionInterface():
+    def to_version_entry(self, updated_at):
+        self._status = "entry"
+        self.updated_at = updated_at
+        return self
+
+
+class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
+    __slots__ = ('created_at', 'updated_at', 'deleted')
+    
 
 class AuditedModel(Model):
     pass
