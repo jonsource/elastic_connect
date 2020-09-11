@@ -13,7 +13,7 @@ NONE = 0
 WITH = 1
 ONLY = 2
 
-
+# TODO: sanitize inputs - cannot overwrite deleted manualy - but how?
 class SoftDeleteInterface(Model):
     # must not define __slosts__ here to allow multiple inheritance
     # __slots__ = ('deleted',)
@@ -131,13 +131,13 @@ class TimeStampedInterface(Model):
         return mapping
 
     @classmethod
-    def create(cls, **kw) -> 'StampedModel':
+    def _create(cls, model) -> 'StampedModel':
         now = datetime.now()
-        kw['created_at'] = now
-        kw['updated_at'] = now
+        model.created_at = now
+        model.updated_at = now
         # logger.warn('tsm create %s' % kw)
-        instance = super().create(**kw)
-        return instance
+        model = super()._create(model)
+        return model
 
     def save(self) -> 'StampedModel':
         now = datetime.now()

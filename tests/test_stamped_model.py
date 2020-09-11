@@ -85,6 +85,30 @@ def test_create(freezer, fix_stamped_model):
         'deleted': False
     }
 
+def test_create_by_save(freezer, fix_stamped_model):
+    cls = fix_stamped_model
+
+    now = datetime.now()
+
+    in_memory = cls(value='value1')  # type: StampedModel
+    instance = in_memory.save()
+
+    assert instance.id is not None
+    assert instance.created_at == now
+    assert instance.updated_at == now
+
+    cls.refresh()
+
+    es = elastic_connect.get_es()
+    es_result = es.get(index=cls.get_index(), doc_type=cls.get_doctype(), id=instance.id)
+
+    assert es_result['found'] == True
+    assert es_result['_source'] == {
+        'value': 'value1',
+        'created_at': now.isoformat(),
+        'updated_at': now.isoformat(),
+        'deleted': False
+    }
 
 def test_update(freezer, fix_stamped_model):
     cls = fix_stamped_model

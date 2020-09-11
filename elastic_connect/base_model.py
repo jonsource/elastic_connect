@@ -50,10 +50,10 @@ class Model(object):
         """
 
         for property, type in self._mapping.items():
-            self.__update(property, type.get_default_value())
+            self._update(property, type.get_default_value())
         for property, type in self._mapping.items():
             value = kw.get(property, type.get_default_value())
-            self.__update(property,
+            self._update(property,
                           type.on_update(type.from_python(value), self))
 
     @classmethod
@@ -221,16 +221,8 @@ class Model(object):
             self._version = response['_version']
         else:
             self.id = self._compute_id()
-            serialized_flat = self.serialize(exclude=['id', '_version'],
-                                             flat=True)
-            if self.id:
-                response = es_connection.create(id=self.id,
-                                                body=serialized_flat)
-            else:
-                response = es_connection.index(body=serialized_flat)
-                self.id = response['_id']
-            logger.debug("model.id from save %s", self.id)
-            self._version = response['_version']
+            self._create(self)
+
         return self.post_save()
 
     def post_save(self):
@@ -262,7 +254,7 @@ class Model(object):
         for property, type in self._mapping.items():
             logger.debug("pre _lazy_load %s %s",
                          property, self.__getattribute__(property))
-            self.__update(property, type.lazy_load(self))
+            self._update(property, type.lazy_load(self))
         logger.debug("_lazy_load %s", self)
         return self
 
@@ -486,10 +478,10 @@ class Model(object):
 
     def __setattr__(self, name, value):
         if name in self._mapping:
-            return self.__update(name, value)
+            return self._update(name, value)
         return super().__setattr__(name, value)
 
-    def __update(self, name, value):
+    def _update(self, name, value):
         super().__setattr__(name, self._mapping[name].on_update(value, self))
         return self
 
