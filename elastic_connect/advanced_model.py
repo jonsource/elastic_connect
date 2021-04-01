@@ -31,6 +31,7 @@ class SoftDeleteInterface(Model):
         kw['deleted'] = False
         # logger.warn('sdm create %s' % kw)
         instance = super().create(**kw)
+        cls.refresh()
         return instance
 
     def delete(self, force=False):
@@ -158,7 +159,7 @@ class VersionedInterface(Model):
         mapping = Mapping()
         for key, val in cls._mapping.items():
             print("KEY VAL", key, val)
-            mapping.add_field(key, val.__class__())
+            mapping.add_field(key, val.__class__(**val.class_params()))
         mapping.add_field('_document_id', data_types.Keyword())
         mapping.add_field('_document_version', data_types.Keyword())
         mapping.add_field('_status', data_types.Keyword())
@@ -181,7 +182,7 @@ class VersionedInterface(Model):
         #         self._type = "entry"
 
         VersionClass = type(cls.__name__ + '_version',
-                        (Model, VersionInterface),
+                        (VersionInterface, Model),
                         {
                             '__slots__': slots,
                             '_mapping': mapping,
@@ -189,7 +190,7 @@ class VersionedInterface(Model):
                             '_es_namespace': cls._es_namespace,
                             '_es_connection': None,
                         })
-              
+
         cls._version_class = VersionClass
         # cls._es_namespace.create_mappings(model_classes=[VersionClass])
         return cls._version_class
@@ -232,10 +233,11 @@ class VersionedInterface(Model):
             raise IntegrityError("Two versions found.")
         if not result:
             return None
+        result[0]._document_id = id
         return result[0]
 
     def get_version(self, version):
-        return self.get_version_class(self.id, version)
+        return self.get_document_version(self.id, version)
 
     @classmethod
     def refresh(cls):
@@ -253,10 +255,13 @@ class VersionInterface():
         self.updated_at = updated_at
         return self
 
+    def get_id(self):
+        print("in get_id of VersionInterface")
+        return self._document_id
 
 class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
-    __slots__ = ('created_at', 'updated_at', 'deleted')
-    
+    __slots__ = ('created_at', 'updated_at', 'deleted', '_document_id')
+
 
 class AuditedModel(Model):
     pass

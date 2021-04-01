@@ -52,6 +52,9 @@ class BaseDataType(ABC):
     def __repr__(self):
         return object.__repr__(self) + str(self.__dict__)
 
+    def class_params(self):
+        return {'name': self.name}
+
 
 class Keyword(BaseDataType):
     pass
@@ -103,3 +106,6 @@ class ScaledFloat(BaseDataType):
         return {'type': 'scaled_float',
                 'scaling_factor': self.scaling_factor
                 }
+
+    def class_params(self):
+        return {'name': self.name, 'scaling_factor': self.scaling_factor}

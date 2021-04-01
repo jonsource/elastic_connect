@@ -82,6 +82,9 @@ class Model(object):
 
         return cls._meta['_doc_type']
 
+    def get_id(self):
+        return self.id
+
     def _compute_id(self):
         """
         Count or return stored id for this model instance.
@@ -237,7 +240,7 @@ class Model(object):
             self.save()
         return self
 
-    def delete(self):
+    def delete(self, force=None):
         """
         Delete a model from elasticsearch.
 
@@ -252,10 +255,10 @@ class Model(object):
         """
 
         for property, type in self._mapping.items():
-            logger.debug("pre _lazy_load %s %s",
-                         property, self.__getattribute__(property))
+            logger.info("pre _lazy_load %s %s (%s)",
+                         property, self.__getattribute__(property), type)
             self._update(property, type.lazy_load(self))
-        logger.debug("_lazy_load %s", self)
+        logger.info("_lazy_load %s", self)
         return self
 
     @classmethod

@@ -16,6 +16,8 @@ class Join(BaseDataType):
 
         super().__init__(name=name)
 
+        self.source_def = source
+        self.target_def = target
         self.source = None
         self.target = None
         self._source_module, self._source = self.split_class_def(source)
@@ -100,6 +102,12 @@ class Join(BaseDataType):
             return False
         return True
 
+    def class_params(self):
+        params = super().class_params()
+        params['source'] = self.source_def
+        params['target'] = self.target_def
+        return params
+
 
 class SingleJoin(Join):
     """
@@ -108,7 +116,7 @@ class SingleJoin(Join):
 
     def lazy_load(self, model):
         try:
-            value = model.__getattribute__(self.name).id
+            value = model.__getattribute__(self.name).get_id()
         except AttributeError:
             value = model.__getattribute__(self.name)
         loaded = self.get_default_value()
@@ -123,8 +131,8 @@ class SingleJoin(Join):
                   flat: bool = True):
         if depth < 1:
             try:
-                if value.id:
-                    ret = value.id
+                if value.get_id():
+                    ret = value.get_id()
                 else:
                     if to_str:
                         ret = object.__repr__(value)
@@ -156,16 +164,16 @@ class SingleJoin(Join):
                          model: 'base_model.Model'):  # noqa: F821
         logger.debug("SingleJoin::insert_reference %s %s",
                      self.name,
-                     value.id)
+                     value.get_id())
         model.__setattr__(self.name, value)
 
     def on_save(self, model):
         value = model.__getattribute__(self.name)
         logger.debug("SingleJoin::on_save %s %s %s",
                      self.name,
-                     model.id,
-                     value and (hasattr(value, 'id') and value.id))
-        if value and hasattr(value, 'id') and value.id is None:
+                     model.get_id(),
+                     value and (hasattr(value, 'id') and value.get_id()))
+        if value and hasattr(value, 'id') and value.get_id() is None:
             logger.debug("SingleJoin::on_save - saving")
             value.save()
             return value
@@ -189,7 +197,7 @@ class MultiJoin(Join):
 
     def lazy_load(self, model):
         try:
-            value = [v.id for v in model.__getattribute__(self.name)]
+            value = [v.get_id() for v in model.__getattribute__(self.name)]
         except AttributeError:
             value = model.__getattribute__(self.name)
         return self.get_target().get(value)
@@ -230,17 +238,17 @@ class MultiJoin(Join):
         logger.debug("MultiJoin::insert_reference %s.%s = %s",
                      model, self.name, value)
         referred_attribute = model.__getattribute__(self.name)
-        referred_ids = [r.id for r in referred_attribute
+        referred_ids = [r.get_id() for r in referred_attribute
                         if self._is_value_model(r)]
-        if value.id not in referred_ids:
+        if value.get_id() not in referred_ids:
             referred_attribute.append(value)
 
     def on_save(self, model: 'base_model.Model'):  # noqa: F821
-        logger.debug("MultiJoin::on_save %s %s", self.name, model.id)
+        logger.debug("MultiJoin::on_save %s %s", self.name, model.get_id())
         ret = []
         values = model.__getattribute__(self.name)
         initialized_values = [v for v in values
-                              if v and hasattr(v, 'id') and v.id is None]
+                              if v and hasattr(v, 'id') and v.get_id() is None]
         for value in initialized_values:
             ret.append(value.save())
         if len(ret):
@@ -251,6 +259,11 @@ class MultiJoin(Join):
         if value is None:
             return []
         return value
+
+    def class_params(self):
+        params = super().class_params()
+        params['join_by'] = self.join_by
+        return params
 
 
 class LooseJoin(Join):
@@ -282,12 +295,17 @@ class SingleJoinLoose(SingleJoin, LooseJoin):
 
         assert self.target_property
         target = self.get_target()
-        find_by = {self.target_property: value.id}
+        find_by = {self.target_property: value.get_id()}
         try:
             ret = target.find_by(**find_by, size=1)[0]
         except IndexError:
             ret = None
         return ret
+
+    def class_params(self):
+        params = super().class_params()
+        params['do_lazy_load'] = self.do_lazy_load
+        return params
 
 
 class MultiJoinLoose(MultiJoin, LooseJoin):
@@ -308,6 +326,16 @@ class MultiJoinLoose(MultiJoin, LooseJoin):
 
         assert self.target_property
         target = self.get_target()
-        find_by = {self.target_property: value.id}
+        find_by = {self.target_property: value.get_id()}
+        try:
+            print("to_Version_entry", value.to_version_entry())
+        except:
+            print("no to_version_entry")
+        print("lazyloading into: %r:%r target: %s .find_by: %s" % (self.get_source(), value, target, find_by))
         ret = target.find_by(**find_by)
         return ret
+
+    def class_params(self):
+        params = super().class_params()
+        params['do_lazy_load'] = self.do_lazy_load
+        return params
