@@ -37,6 +37,7 @@ class Model(object):
         # not needed - if missing, treated as false
         # '_load_version': False,
         # '_check_version': False,
+        # '_post_save_refresh': False
     }
 
     _es_namespace = elastic_connect._namespaces['_default']
@@ -236,6 +237,9 @@ class Model(object):
         logger.debug("post_save ret %s %s", self.id, ret)
         ret = [r for r in ret if r is not None]
         if len(ret):
+            # self.refresh()
+            if self._meta.get('_post_save_refresh'):
+                self.refresh()
             # resave, because some child models were updated
             self.save()
         return self

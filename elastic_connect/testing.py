@@ -113,7 +113,13 @@ def fix_index(request, model_classes):
     :yield: None
     """
 
-    indices = elastic_connect.create_mappings(model_classes)
+    classes = [c for c in model_classes]
+    for model in classes:
+        try:
+            classes += [model.get_version_class()]
+        except AttributeError:
+            pass
+    indices = elastic_connect.create_mappings(classes)
 
     logger.info("created indices: %s", indices)
 

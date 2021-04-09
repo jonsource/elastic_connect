@@ -125,7 +125,7 @@ def test_update(freezer, fix_stamped_model):
     freezer.tick(delta=timedelta(seconds=10))
 
     updated = created + timedelta(seconds=10)
-    
+
     loaded.value = "dva"
     loaded.save()
     cls.refresh()
@@ -145,7 +145,7 @@ def test_get(freezer, fix_stamped_model):
 
     #loaded = cls.get(instance.id)
     loaded = cls.get(instance.id)
-    
+
     assert loaded.created_at == now
     assert loaded.updated_at == now
 
@@ -215,7 +215,7 @@ def test_restore(freezer, fix_stamped_model):
 
     cls.restore(instance.id)
     cls.refresh()
-    
+
     assert cls.get(instance.id).id == instance.id
 
     with pytest.raises(elasticsearch.exceptions.NotFoundError):
@@ -234,7 +234,7 @@ def test_contextmanager_thrashed(freezer, fix_stamped_model):
         assert cls.thrash_handling == advanced_model.WITH
         assert inst.thrash_handling == advanced_model.WITH
 
-    assert cls.thrash_handling == advanced_model.NONE    
+    assert cls.thrash_handling == advanced_model.NONE
     assert inst.thrash_handling == advanced_model.NONE
 
 
@@ -248,9 +248,40 @@ def test_thrashed(freezer, fix_stamped_model):
     cls.refresh()
 
     assert len(cls.all()) == 2
-    
+
     with cls.thrashed():
         assert len(cls.all()) == 3
 
     with cls.thrashed_only():
         assert len(cls.all()) == 1
+
+def test_soft_delete_find_by_query(fix_stamped_model):
+    cls = fix_stamped_model
+
+    instance1 = cls.create(value='value30')  # type: StampedModel
+    instance2 = cls.create(value='value35')  # type: StampedModel
+    instance3 = cls.create(value='value40')  # type: StampedModel
+    instance4 = cls.create(value='value50')  # type: StampedModel
+    cls.refresh()
+
+    found1 = cls.find_by(query="value: value*")
+    assert len(found1) == 4
+
+    found1 = cls.find_by(query="value: value3*")
+    assert len(found1) == 2
+
+    instance2.delete()
+    cls.refresh()
+
+    found1 = cls.find_by(query="value: value3*")
+    assert len(found1) == 1
+    assert found1[0].value == "value30"
+
+    with cls.thrashed_only():
+        found1 = cls.find_by(query="value: value3*")
+        assert len(found1) == 1
+        assert found1[0].value == "value35"
+
+    with cls.thrashed():
+        found1 = cls.find_by(query="value: value3*")
+        assert len(found1) == 2

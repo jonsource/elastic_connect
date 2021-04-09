@@ -8,6 +8,8 @@ import elasticsearch.exceptions
 
 logger = logging.getLogger(__name__)
 
+class MissingPreviousVersionError(Exception):
+    pass
 
 NONE = 0
 WITH = 1
@@ -35,6 +37,7 @@ class SoftDeleteInterface(Model):
         return instance
 
     def delete(self, force=False):
+        print("DELETING: %r force=%s" % (self, force))
         if force:
             return super().delete()
 
@@ -51,9 +54,10 @@ class SoftDeleteInterface(Model):
 
     @classmethod
     def get(cls, id):
+        print("cls", cls)
         result = cls.find_by(size=1, _id=id)
         if not len(result):
-            raise NotFoundError()
+            raise NotFoundError
         if len(result) > 1:
             raise IntegrityError(
                 "Get returned multiple items, should return one!")
@@ -72,8 +76,14 @@ class SoftDeleteInterface(Model):
                 **kw):
 
         if query:
-            # add deleted=false to query
-            pass
+            apends = {
+                ONLY: " AND deleted: true",
+                NONE: " AND deleted: false",
+                WITH: "",
+            }
+            query = query + apends.get(cls.thrash_handling)
+            print("query:", query)
+
         else:
             kw = {**kw, **cls._thrashed_kw()}
         return super().find_by(size=size, sort=sort,
@@ -196,13 +206,18 @@ class VersionedInterface(Model):
         return cls._version_class
 
     def save(self) -> 'VersionedModel':
-        print('\nsaving' + self.__class__.__name__)
+        print('\nsaving' + self.__class__.__name__, self.id)
 
-        previous = self.get(self.id)
-        print('\ngot previous', previous)
+        try:
+            previous = self.get(self.id)
+        except NotFoundError:
+            raise MissingPreviousVersionError()
+        print('\ngot previous %r' % previous)
         if previous._version != self._version:
             raise elasticsearch.exceptions.ConflictError('Underlying document changed version.')
-        proposal = previous.to_version_proposal().save()
+        proposal = previous.to_version_proposal()
+        print('\nproposal %r' % proposal)
+        proposal.save()
         try:
             main_entry = super().save()
             update_time = main_entry.updated_at
@@ -215,15 +230,20 @@ class VersionedInterface(Model):
     def to_version_proposal(self):
         cls = self.get_version_class()
         proposal = cls()
+        print("in to_version_proposal: %r" % proposal, 'items', self.__dict__.items(), 'slots', self.__slots__)
         for attr, val in self.__dict__.items():
             proposal.__dict__[attr] = val
         for attr in self.__slots__:
+            if attr in ['id', '_version', 'created_at']:
+                continue
             setattr(proposal, attr, getattr(self, attr))
         proposal._status = 'proposal'
         proposal._version = 0
         proposal._document_version = self._version
         proposal._document_id = self.id
         proposal.created_at = self.created_at
+
+        print("in to_version_proposal2: %r" % proposal)
         return proposal
 
     @classmethod
@@ -261,7 +281,13 @@ class VersionInterface():
 
 class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
     __slots__ = ('created_at', 'updated_at', 'deleted', '_document_id')
-
+    _meta = {
+        '_doc_type': 'versioned_model',
+        # not needed - if missing, treated as false
+        # '_load_version': False,
+        # '_check_version': False,
+        '_post_save_refresh': True
+    }
 
 class AuditedModel(Model):
     pass

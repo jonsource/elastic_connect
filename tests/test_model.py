@@ -3,6 +3,7 @@ from elastic_connect import Model
 import elastic_connect
 from elastic_connect.data_types import Keyword, Long
 from elastic_connect.data_types.base import BaseDataType
+from collections import UserDict
 import elasticsearch.exceptions
 
 
@@ -130,7 +131,7 @@ def fix_version_aware(request):
             '_doc_type': 'model_version_aware',
             '_load_version': True,
         }
-        
+
         _mapping = Model.model_mapping(
             value=Keyword(),
         )
@@ -192,7 +193,7 @@ def test_multi_get(fix_model_one_save):
     es = elastic_connect.get_es()
     es_result1 = es.index(index=cls.get_index(), doc_type=cls.get_doctype(), body={'value': 'pokus'}, refresh=False)
     es_result2 = es.index(index=cls.get_index(), doc_type=cls.get_doctype(), body={'value': 'pokus2'}, refresh=True)
-    
+
     instances = cls.get([es_result1['_id'], es_result2['_id']])
 
     print(instances)
@@ -367,7 +368,7 @@ def test_find_by_default_sort(fix_model_one_save_sort):
         assert found[i].order < found[i + 1].order
         # save wehther also the ids of the two elements are in order
         ids_in_sequence.append(found[i].id < found[i + 1].id)
-    
+
     # In a big enough set of items some should be in sequence and some
     # should not. Model.id (mapped to _uid in Elasticsearch) is not
     # sequential, but in parts, it is. A set of 100 items should be
@@ -375,7 +376,7 @@ def test_find_by_default_sort(fix_model_one_save_sort):
     # consistently
     assert False in ids_in_sequence
     assert True in ids_in_sequence
-   
+
 
 
 def test_find_by_multi(fix_model_two_save):
@@ -582,7 +583,6 @@ def test_find_by_query(fix_model_two_save):
     found1 = cls.find_by(query="subvalue: *.zive.cz AND value: *50")
     assert len(found1) == 0
 
-from collections import UserDict
 
 def test_set_mapping():
 
@@ -604,7 +604,7 @@ def test_set_mapping():
         _meta = {
             '_doc_type': 'model_save_one'
         }
-        
+
         _mapping = Model.model_mapping(
             id=Keyword(),
             value=Keyword()

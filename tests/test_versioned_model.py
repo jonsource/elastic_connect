@@ -3,7 +3,7 @@ from elastic_connect.base_model import Model
 from elastic_connect.advanced_model import VersionedModel
 from elastic_connect import advanced_model
 import elastic_connect
-from elastic_connect.data_types import Keyword, Date, MultiJoinLoose, SingleJoin
+from elastic_connect.data_types import Keyword, Date, MultiJoin, SingleJoin
 import elasticsearch.exceptions
 from datetime import datetime, timedelta
 from elasticsearch.exceptions import NotFoundError
@@ -18,6 +18,7 @@ def fix_versioned_model(request):
         _meta = {
             '_doc_type': 'versioned_one',
             '_load_version': True,
+            '_post_save_refresh': True
         }
         _mapping = VersionedModel.model_mapping(value=Keyword())
 
@@ -38,29 +39,32 @@ def fix_versioned_model(request):
     assert not es.indices.exists(index=VersionClass.get_index())
 
 class VersionedParent(VersionedModel):
-        __slots__ = ('value', 'child')
+        __slots__ = ('id', 'value', 'child')
 
         _meta = {
             '_doc_type': 'versioned_parent',
             '_load_version': True,
+            '_post_save_refresh': True
         }
         _mapping = VersionedModel.model_mapping(
+            id=Keyword(),
             value=Keyword(),
-            child=MultiJoinLoose(
+            child=MultiJoin(
                 source='test_versioned_model.VersionedParent',
                 target='test_versioned_model.Child:parent',
-                do_lazy_load=True
+                #do_lazy_load=True
                 )
         )
 
 class Child(Model):
-    __slots__ = ('value', 'parent')
+    __slots__ = ('id', 'value', 'parent')
 
     _meta = {
         '_doc_type': 'child',
         '_load_version': True,
     }
     _mapping = Model.model_mapping(
+        id=Keyword(),
         value=Keyword(),
         parent=SingleJoin(
             source='test_versioned_model.Child:parent',
@@ -93,7 +97,16 @@ def fix_versioned_model_with_join(request):
 def delete_all_instances(fix_versioned_model, fix_versioned_model_with_join):
     yield
 
+    all_models = []
     for model in [fix_versioned_model] + list(fix_versioned_model_with_join):
+        all_models.append(model)
+        try:
+            all_models.append(model.get_version_class())
+        except AttributeError:
+            pass
+
+    for model in all_models:
+        print("delete all of ", model)
         instances = model.all()
 
         for instance in instances:
@@ -144,6 +157,39 @@ def test_to_proposal(fix_versioned_model):
     assert proposal._status == 'proposal'
     assert proposal._document_id == instance1.id
 
+def test_versioned_create_and_delete(fix_versioned_model_with_join):
+    cls, cls_version = fix_versioned_model_with_join
+
+    instance1 = cls.create(value='value1')
+    assert instance1._version == 1
+    cls.refresh()
+    g = cls.get(id=instance1.id)
+    assert g._version == 1
+
+    #assert len(cls.get_version_class().all()) == 1
+
+    # soft delete
+    g.delete()
+    cls.refresh()
+
+    # cannot be found in normal mode
+    with pytest.raises(elasticsearch.exceptions.NotFoundError):
+        cls.get(instance1.id)
+
+    # can be found in 'thrashed' mode
+    with cls.thrashed():
+        deleted = cls.get(instance1.id)
+    assert deleted.id == instance1.id
+    assert deleted.deleted == True
+
+    # hard delete
+    g.delete(force=True)
+    cls.refresh()
+
+    # cannot be found even in 'thrashed' mode
+    with pytest.raises(elasticsearch.NotFoundError):
+        with cls.thrashed():
+            cls.get(instance1.id)
 
 def test_versioned_update(fix_versioned_model):
     cls = fix_versioned_model
@@ -239,9 +285,8 @@ def test_versioned_with_join_update(fix_versioned_model_with_join):
     from pprint import pprint
     pa, ch = fix_versioned_model_with_join
 
-    parent1 = pa.create(value='value1')
-    child1 = ch.create(value='ch1', parent=parent1)
-    parent1.child=[child1]
+    child1 = ch.create(value='ch1')
+    parent1 = pa.create(value='value1', child=[child1])
     ch.refresh()
 
     assert child1.parent.id == parent1.id
@@ -257,11 +302,10 @@ def test_versioned_with_join_update(fix_versioned_model_with_join):
     assert loaded1.id == parent1.id
     assert loaded1.value == 'value2'
     assert loaded1._version == 2
-    assert len(loaded1.child) == 0
+    assert len(loaded1.child) == 1
+    # only id, not the object
+    assert loaded1.child[0] == child1.id
     loaded1._lazy_load()
-    from pprint import pprint
-    print("loaded1")
-    pprint(loaded1)
     assert loaded1.child[0].id == child1.id
 
     versions = pa.get_version_class().all()
@@ -269,11 +313,23 @@ def test_versioned_with_join_update(fix_versioned_model_with_join):
 
     loaded2 = pa.get_document_version(parent1.id, 1)
 
-
     assert loaded2._document_id == parent1.id
     assert loaded2.value == 'value1'
     assert loaded2._document_version == 1
     loaded2._lazy_load()
-    print("loaded2")
-    pprint(loaded2)
     assert loaded2.child[0].id == child1.id
+
+def test_versioned_join_creation(fix_versioned_model_with_join):
+    Pa, Ch = fix_versioned_model_with_join
+    c = Ch.create(value="one")
+    p = Pa.create(value="Pa one", child=[c])
+    p.save()
+    c.refresh()
+    assert len(p.child) == 1
+    assert c.parent.id == p.id
+
+    g = Pa.get(p.id)
+    g._lazy_load()
+    assert len(g.child) == 1
+    assert g.child[0].id == c.id
+    assert g.child[0].parent.id == g.id
