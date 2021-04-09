@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='elastic_connect',
-    version='0.2.3',
+    version='0.3.0-d',
     author='Jan Sourek',
     author_email='jan.sourek@gmail.com',
     packages=['elastic_connect', 'elastic_connect.data_types'],
