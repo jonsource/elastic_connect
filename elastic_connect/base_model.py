@@ -274,14 +274,13 @@ class Model(object):
         :return: returns an instance of elastic_connect.connect.Result
         """
         if isinstance(id, str):
-            print("getting single documents %s" % id)
+            logger.debug("getting single document %s" % id)
             ret = cls.get_es_connection().get(id=id)
             return ret
         else:
-            logger.debug("getting multiple documents %s" % id)
             if not id:
                 return []
-            print("getting multiple document %s" % id)
+            logger.debug("getting multiple documents %s" % id)
             ret = cls.get_es_connection().mget(body={'ids': id})
             return ret
 

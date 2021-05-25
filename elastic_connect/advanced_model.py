@@ -37,7 +37,7 @@ class SoftDeleteInterface(Model):
         return instance
 
     def delete(self, force=False):
-        print("DELETING: %r force=%s" % (self, force))
+        logger.debug("DELETING: %r force=%s" % (self, force))
         if force:
             return super().delete()
 
@@ -54,7 +54,6 @@ class SoftDeleteInterface(Model):
 
     @classmethod
     def get(cls, id):
-        print("cls", cls)
         result = cls.find_by(size=1, _id=id)
         if not len(result):
             raise NotFoundError
@@ -82,7 +81,7 @@ class SoftDeleteInterface(Model):
                 WITH: "",
             }
             query = query + apends.get(cls.thrash_handling)
-            print("query:", query)
+            logger.debug("query: %s" % query)
 
         else:
             kw = {**kw, **cls._thrashed_kw()}
@@ -168,7 +167,6 @@ class VersionedInterface(Model):
 
         mapping = Mapping()
         for key, val in cls._mapping.items():
-            print("KEY VAL", key, val)
             mapping.add_field(key, val.__class__(**val.class_params()))
         mapping.add_field('_document_id', data_types.Keyword())
         mapping.add_field('_document_version', data_types.Keyword())
@@ -206,17 +204,17 @@ class VersionedInterface(Model):
         return cls._version_class
 
     def save(self) -> 'VersionedModel':
-        print('\nsaving' + self.__class__.__name__, self.id)
+        logger.debug('\nsaving' + self.__class__.__name__ + " " + self.id)
 
         try:
             previous = self.get(self.id)
         except NotFoundError:
             raise MissingPreviousVersionError()
-        print('\ngot previous %r' % previous)
+        logger.debug('\ngot previous %r' % previous)
         if previous._version != self._version:
             raise elasticsearch.exceptions.ConflictError('Underlying document changed version.')
         proposal = previous.to_version_proposal()
-        print('\nproposal %r' % proposal)
+        logger.debug('\nproposal %r' % proposal)
         proposal.save()
         try:
             main_entry = super().save()
@@ -230,7 +228,6 @@ class VersionedInterface(Model):
     def to_version_proposal(self):
         cls = self.get_version_class()
         proposal = cls()
-        print("in to_version_proposal: %r" % proposal, 'items', self.__dict__.items(), 'slots', self.__slots__)
         for attr, val in self.__dict__.items():
             proposal.__dict__[attr] = val
         for attr in self.__slots__:
@@ -243,7 +240,6 @@ class VersionedInterface(Model):
         proposal._document_id = self.id
         proposal.created_at = self.created_at
 
-        print("in to_version_proposal2: %r" % proposal)
         return proposal
 
     @classmethod
@@ -268,7 +264,6 @@ class VersionedInterface(Model):
 class StampedModel(TimeStampedInterface, SoftDeleteInterface):
     __slots__ = ('created_at', 'updated_at', 'deleted')
 
-
 class VersionInterface():
     def to_version_entry(self, updated_at):
         self._status = "entry"
@@ -276,7 +271,6 @@ class VersionInterface():
         return self
 
     def get_id(self):
-        print("in get_id of VersionInterface")
         return self._document_id
 
 class VersionedModel(TimeStampedInterface, SoftDeleteInterface, VersionedInterface):
