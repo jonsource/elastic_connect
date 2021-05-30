@@ -29,8 +29,18 @@ class Result(UserList):
         except KeyError:
             self.hits = [result]
 
-        for hit in self.hits:
-            ret.append(model.from_es(hit))
+        # if source is present, load the instances
+        if len(self.hits) and '_source' in self.hits[0]:
+            self.only_ids = False
+            for hit in self.hits:
+                ret.append(model.from_es(hit))
+        # if source is not present, we want only the 'sort' data for search_after
+        # - i.e. paging. We don't want to load the instances themselves
+        # we'll only use the ids (we already have them) to get proper length info
+        else:
+            self.only_ids = True
+            ret = [hit['_id'] for hit in self.hits]
+
         self.results = ret
         if len(self.hits) and 'sort' in self.hits[-1]:
             self.search_after_values = self.hits[-1]['sort']
@@ -38,7 +48,7 @@ class Result(UserList):
             self.search_after_values = None
         super(Result, self).__init__(self.results)
 
-    def search_after(self):
+    def search_after(self, only_ids=False):
         """
         Utilizes the Elasticsearch search_after capability to perform
         some real-time scrolling through the results. Uses the
@@ -57,9 +67,16 @@ class Result(UserList):
             found.search_after()
             # further 10 results (sorted by _uid) are returned
 
+        :param only_ids: Get only ids, not the models for loaded data. This is mainly
+            intended for paging. No models are loaded to save memory and bandwidth, but
+            all necessary metadata for search_after are present. Ids are provided
+            because they are handy, and there's no way to get the results without them
+            either.
         :return: further results
         """
         self.pass_args['body']['search_after'] = self.search_after_values
+        if only_ids:
+            self.pass_args['body']['_source'] = False
         return getattr(self.model.get_es_connection(),
                        self.method)(**self.pass_args)
 

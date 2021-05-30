@@ -93,7 +93,7 @@ def fix_model_one_id_save(request):
     assert not es.indices.exists(index=OneIdSave.get_index())
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def fix_model_two_save(request):
 
     class TwoSave(Model):
@@ -561,6 +561,33 @@ def test_find_by_search_after_custom_value(fix_model_two_save):
 
     found3 = cls.find_by(value='value20', sort=[{'subvalue': 'desc'}], search_after=['2', ''])
     assert len(found2) == 2
+
+def test_search_after_without_data(fix_model_two_save):
+    cls = fix_model_two_save
+
+    instance = []
+    max = 5
+    for i in range(max):
+        instance.append(cls.create(value='value21', subvalue='sub' + str(i)))  # type: TwoSave
+    cls.refresh()
+
+    # find first two
+    found = cls.all(size=2, sort=[{'subvalue': 'asc'}])
+    assert len(found) == 2
+    assert found[0].value == 'value21'
+    assert found[1].subvalue == 'sub1'
+    assert found.only_ids == False
+
+    # find only search_after value for the next two (for paging)
+    found2 = found.search_after(only_ids=True)
+    assert len(found2) == 2
+    assert found2.only_ids == True
+    ins = instance[3]
+    assert found2.search_after_values == [ins.subvalue, ins.get_doctype() + '#' + ins.id]
+
+    found3 = found2.search_after(only_ids=True)
+    assert len(found3) == 1
+    assert found3.only_ids == True
 
 def test_find_by_query(fix_model_two_save):
     cls = fix_model_two_save
