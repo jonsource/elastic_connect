@@ -63,10 +63,6 @@ class SoftDeleteInterface(Model):
         return result[0]
 
     @classmethod
-    def all(cls, size=100, sort=None):
-        return cls.find_by(size=size, sort=sort)
-
-    @classmethod
     def find_by(cls,
                 size=100,
                 sort=None,

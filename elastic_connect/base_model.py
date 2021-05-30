@@ -285,18 +285,18 @@ class Model(object):
             return ret
 
     @classmethod
-    def all(cls, size=100, sort=None):
+    def all(cls, size=100, sort=None, search_after=None):
         """
         Get all models from Elasticsearch.
         :param size: max number of hits to return. Default = 100.
         :param sort: sorting of the result as provided by
             prepare_sort(sort)
+        :param search_after: searches for results 'after' the value(s)
+            supplied, preferably used with
+            elastic_connect.connect.Result.search_after_values
         :return: returns an instance of elastic_connect.connect.Result
         """
-        sort = cls.prepare_sort(sort, stringify=True)
-
-        return cls.get_es_connection().search(
-            sort=sort, size=size, version=cls.should_load_version())
+        return cls.find_by(size=size, sort=sort, search_after=search_after)
 
     @classmethod
     def get_default_sort(cls):
