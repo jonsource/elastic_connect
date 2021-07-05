@@ -203,7 +203,8 @@ class VersionedInterface(Model):
         logger.debug('\nsaving' + self.__class__.__name__ + " " + self.id)
 
         try:
-            previous = self.get(self.id)
+            with self.thrashed():
+                previous = self.get(self.id)
         except NotFoundError:
             raise MissingPreviousVersionError()
         logger.debug('\ngot previous %r' % previous)

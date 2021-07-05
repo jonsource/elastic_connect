@@ -333,3 +333,21 @@ def test_versioned_join_creation(fix_versioned_model_with_join):
     assert len(g.child) == 1
     assert g.child[0].id == c.id
     assert g.child[0].parent.id == g.id
+
+def test_restore(fix_versioned_model):
+    cls = fix_versioned_model
+
+    instance = cls.create(value='value1')  # type: StampedModel
+    instance.delete()
+    cls.refresh()
+
+    with pytest.raises(elasticsearch.exceptions.NotFoundError):
+        cls.get(instance.id)
+
+    cls.restore(instance.id)
+    cls.refresh()
+
+    assert cls.get(instance.id).id == instance.id
+
+    with pytest.raises(elasticsearch.exceptions.NotFoundError):
+        cls.restore('badbadId')
