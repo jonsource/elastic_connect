@@ -54,13 +54,22 @@ class SoftDeleteInterface(Model):
 
     @classmethod
     def get(cls, id):
-        result = cls.find_by(size=1, _id=id)
-        if not len(result):
-            raise NotFoundError
-        if len(result) > 1:
-            raise IntegrityError(
-                "Get returned multiple items, should return one!")
-        return result[0]
+        if isinstance(id, str):
+            result = cls.find_by(size=1, _id=id)
+            if not len(result):
+                raise NotFoundError
+            if len(result) > 1:
+                raise IntegrityError(
+                    "Get returned multiple items, should return one!")
+            return result[0]
+        else:
+            ret = []
+            for i in id:
+                ret.append(cls.get(i))
+            if len(ret)!=len(id):
+                raise IntegrityError(
+                    f'Get by multiple ids ({len(ids)}) returned a different number of items ({len(ret)})!')
+            return ret
 
     @classmethod
     def find_by(cls,

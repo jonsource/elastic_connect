@@ -270,7 +270,7 @@ class Model(object):
         """
         Get a model by id from elasticsearch.
 
-        :param id: id of the model to get
+        :param id: id of the model to get. Can be a list of ids.
         :return: returns an instance of elastic_connect.connect.Result
         """
         if isinstance(id, str):
