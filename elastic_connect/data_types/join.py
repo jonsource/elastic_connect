@@ -327,11 +327,11 @@ class MultiJoinLoose(MultiJoin, LooseJoin):
         assert self.target_property
         target = self.get_target()
         find_by = {self.target_property: value.get_id()}
-        try:
-            print("to_Version_entry", value.to_version_entry())
-        except:
-            print("no to_version_entry")
-        print("lazyloading into: %r:%r target: %s .find_by: %s" % (self.get_source(), value, target, find_by))
+        # try:
+        #     logger.debug("to_Version_entry", value.to_version_entry())
+        # except:
+        #     logger.debug("no to_version_entry")
+        # logger.debug("lazyloading into: %r:%r target: %s .find_by: %s" % (self.get_source(), value, target, find_by))
         ret = target.find_by(**find_by)
         return ret
 

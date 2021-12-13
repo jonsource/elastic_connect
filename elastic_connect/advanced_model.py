@@ -57,7 +57,7 @@ class SoftDeleteInterface(Model):
         if isinstance(id, str):
             result = cls.find_by(size=1, _id=id)
             if not len(result):
-                raise NotFoundError
+                raise NotFoundError("Document %s not found." % id)
             if len(result) > 1:
                 raise IntegrityError(
                     "Get returned multiple items, should return one!")
