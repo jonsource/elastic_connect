@@ -259,10 +259,10 @@ class Model(object):
         """
 
         for property, type in self._mapping.items():
-            logger.info("pre _lazy_load %s %s (%s)",
+            logger.debug("pre _lazy_load %s %s (%s)",
                          property, self.__getattribute__(property), type)
             self._update(property, type.lazy_load(self))
-        logger.info("_lazy_load %s", self)
+        logger.debug("_lazy_load %s", self)
         return self
 
     @classmethod
